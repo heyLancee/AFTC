@@ -260,11 +260,13 @@ class FaultSatellite(Satellite):
                 self.b3 = 0
                 self.b4 = -0.004
 
-    def reset(self):
+    def reset_fault_satellite(self):
         self.u_f = np.zeros((4, 1))
         self.fault_mode = np.random.randint(0, 3)
-        print("fault mode: ", self.fault_mode)
+        # print("fault mode: ", self.fault_mode)
 
+    def reset(self):
+        self.reset_fault_satellite()
         return Satellite.reset(self)
 
 
@@ -317,11 +319,13 @@ class SunPointSatellite(Satellite):
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
 
-    def reset(self):
-        state = Satellite.reset(self)
+    def reset_sun_point_satellite(self):
         self.update_se()
-        omegae = state[4:7]
-        self.state = np.concatenate([omegae.flatten(), self.se.flatten()[:2]], axis=0).flatten()
+        self.state = np.concatenate([self.state[4:7].flatten(), self.se.flatten()[:2]], axis=0).flatten()
+
+    def reset(self):
+        Satellite.reset(self)
+        self.reset_sun_point_satellite()
         return self.state
 
     def plot(self):
@@ -367,8 +371,10 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         return reward
     
     def reset(self):
-        FaultSatellite.reset(self)
-        return SunPointSatellite.reset(self)
+        Satellite.reset(self)
+        FaultSatellite.reset_fault_satellite(self)
+        SunPointSatellite.reset_sun_point_satellite(self)
+        return self.state
 
 
 # test case

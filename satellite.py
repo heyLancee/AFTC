@@ -1,0 +1,385 @@
+import random
+
+import numpy as np
+
+from satellite_func import *
+from gym import spaces
+from scipy.spatial.transform import Rotation
+import matplotlib.pyplot as plt
+
+
+class Satellite:
+    def __init__(self, t_max=200, ts=0.1):
+        if hasattr(self, 'is_init') and self.is_init:
+            print("Already initialized, skipping initialization.")
+            return
+
+        self.is_init = False
+        self.tau = ts
+        self.t = 0
+        self.t_max = t_max
+        self._max_episode_steps = int(self.t_max / self.tau)
+
+        self.j = np.array([
+            [12, 0, 0],
+            [0, 15, 0],
+            [0, 0, 18]
+        ])
+        self.j_inv = np.linalg.inv(self.j)
+        self.C = np.array([
+            [1, 0, 0, 3 ** 0.5 / 3],
+            [0, 1, 0, 3 ** 0.5 / 3],
+            [0, 0, 1, 3 ** 0.5 / 3]
+        ])
+
+        self.u_buffer = []  # 单机输出力矩
+        self.qe_buffer = []
+        self.omega_e_buffer = []
+        self.state = None
+        self.q = None
+        self.omega = None
+        self.qd = None
+        self.u_max = np.array([0.08, 0.08, 0.08, 0.08])
+
+        obs = np.array([1, 1, 1, 1, 5, 5, 5], dtype=np.float32)
+        action = np.array([1, 1, 1, 1], dtype=np.float32)
+        self.action_space = spaces.Box(-action, action, dtype=np.float32)
+        self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
+
+    def step(self, torque):
+        torque = torque.reshape(-1, 1)
+        # clip
+        torque = np.clip(torque.flatten(), -self.u_max, self.u_max)
+        u = (self.C @ torque).reshape(-1, 1)
+
+        self.q, self.omega = R_K(self.q, self.omega, self.tau, self.j_inv, self.j, u)
+
+        omega_d = get_omega_d(self.t)
+        qe = get_q_e(self.qd, self.q)
+        qev = qe[1:]
+        omega_e = get_omega_e(self.omega, omega_d, qe)
+        self.state = np.concatenate([qe, omega_e], axis=0).flatten()
+
+        self.u_buffer.append(torque.flatten())
+        self.qe_buffer.append(qe.flatten())
+        self.omega_e_buffer.append(omega_e.flatten())
+        reward = self.reward(u, qev, omega_e)
+
+        self.t += self.tau
+        done = False
+        if self.t >= self.t_max:
+            done = True
+        return self.state, reward, done, {}
+
+    def reward(self, f, qev, omega_e):
+        reward_1 = 0
+        reward_2 = -4 * np.linalg.norm(f)
+        reward_3 = -20 * np.linalg.norm(qev)
+        reward_4 = -10 * np.linalg.norm(omega_e)
+        reward = reward_1 + reward_2 + reward_3 + reward_4
+        return reward
+
+    def seed(self, seed=None):
+        random.seed(seed)
+        np.random.seed(seed)
+        return seed
+    
+    def plot(self):
+        qe_buffer = np.array(self.qe_buffer)
+        omega_e_buffer = np.array(self.omega_e_buffer) * 180 / np.pi
+        u_buffer = np.array(self.u_buffer)
+
+        times = np.linspace(0, self.t_max, len(qe_buffer))
+
+        # qe_buffer
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(times, qe_buffer[:, 0], label='qe0')
+        ax.plot(times, qe_buffer[:, 1], label='qe1')
+        ax.plot(times, qe_buffer[:, 2], label='qe2')
+        ax.plot(times, qe_buffer[:, 3], label='qe3')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Quaternion') 
+
+        # omega_e_buffer
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(times, omega_e_buffer[:, 0], label='omega0')
+        ax.plot(times, omega_e_buffer[:, 1], label='omega1')
+        ax.plot(times, omega_e_buffer[:, 2], label='omega2')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Omega')
+
+        # u_buffer
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(times, u_buffer[:, 0], label='ux')
+        ax.plot(times, u_buffer[:, 1], label='uy')
+        ax.plot(times, u_buffer[:, 2], label='uz')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Torque')
+        plt.show()
+
+    def reset(self):
+        self.qd = np.array([[1], [0], [0], [0]])
+        omega_d = get_omega_d(self.t)
+        self.qd = np.random.random((4, 1))
+        self.qd = self.qd / np.linalg.norm(self.qd)
+        self.q = np.random.random((4, 1))
+        # self.q = np.array([[1], [2], [3], [4]])
+        self.q = self.q / np.linalg.norm(self.q)
+        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.2
+        # self.omega = np.array([[-0.3], [0.1], [0.2]])
+        qe = get_q_e(self.qd, self.q)
+        omega_e = get_omega_e(self.omega, omega_d, qe)
+        self.state = np.concatenate([qe, omega_e], axis=0).flatten()
+        self.t = 0
+        self.u_buffer = []
+        self.qe_buffer = []
+        self.omega_e_buffer = []
+
+        # print("quat init: ", self.q)
+        # print("omega init: ", self.omega)
+        # print("omega desired init: ", self.qd)
+
+        return self.state
+    
+
+class FaultSatellite(Satellite):
+    def __init__(self, fault_mode=0, t_max=200, ts=0.1):
+        super().__init__(t_max, ts)
+
+        self.uf_buffer = []  # 单机故障力矩
+        
+        # 执行器故障相关
+        self.fault_mode = fault_mode
+        self.e1 = 0
+        self.e2 = 0
+        self.e3 = 0
+        self.e4 = 0
+
+        self.b1 = 0
+        self.b2 = 0
+        self.b3 = 0
+        self.b4 = 0
+
+        self.u_f = None
+
+    def update_u_f(self, torque):
+        self.fault_inject(self.t, self.fault_mode)
+        E = np.diag([self.e1, self.e2, self.e3, self.e4])
+        B = np.array([self.b1, self.b2, self.b3, self.b4])
+        self.u_f = - E @ torque + B.reshape(-1, 1)
+        # u_f要保证torque+u_f得到的值在u_max和-u_max之间
+        self.u_f = np.clip(torque.flatten() + self.u_f.flatten(), -self.u_max, self.u_max).reshape(-1, 1) - torque
+
+    def step_fault_satellite(self, torque):
+        torque = torque.reshape(-1, 1)
+        self.update_u_f(torque)
+
+    def step(self, torque):
+        self.step_fault_satellite(torque)
+        u = torque + self.u_f
+        return Satellite.step(self, u)
+
+    def fault_inject(self, t, fault_mode):
+        # clear
+        self.e1, self.e2, self.e3, self.e4 = 0, 0, 0, 0
+        self.b1, self.b2, self.b3, self.b4 = 0, 0, 0, 0
+        if t < 30:
+            pass
+        elif t < 60:
+            if fault_mode == 1:
+                self.e1 = 0.4
+                self.e2 = 0.3
+                self.e3 = 0.2
+                self.e4 = 0.2
+            elif fault_mode == 2:
+                self.e1 = 0.6
+                self.e2 = 0.1
+                self.e3 = 0.2
+                self.e4 = 0
+
+            if fault_mode != 0:
+                self.b1 = -0.005
+                self.b2 = 0
+                self.b3 = 0.007
+                self.b4 = 0.003
+        elif t < 90:
+            if fault_mode == 1:
+                self.e1 = 0.4
+                self.e2 = 0.1
+                self.e3 = 0.2
+                self.e4 = 0.1 * np.sin(0.5 * np.pi * t)
+            elif fault_mode == 2:
+                self.e1 = 0.7 * np.sin(0.5 * np.pi * t)
+                self.e2 = 0.2
+                self.e3 = 0.5 * np.sin(0.5 * np.pi * t)
+                self.e4 = 0
+
+            if fault_mode != 0:
+                self.b1 = 0.002
+                self.b2 = -0.003
+                self.b3 = 0.005
+                self.b4 = 0
+        elif t < 120:
+            if fault_mode == 1:
+                self.e1 = 1
+                self.e2 = 0.8
+                self.e3 = 0.6 + 0.1 * np.cos(0.5 * np.pi * t)
+                self.e4 = 0
+            elif fault_mode == 2:
+                self.e1 = 0.4 * np.sin(0.5 * np.pi * t)
+                self.e2 = 0.3
+                self.e3 = 0.3 + 0.1 * np.cos(0.5 * np.pi * t)
+                self.e4 = 0
+
+            if fault_mode != 0:
+                self.b1 = 0
+                self.b2 = 0.003
+                self.b3 = 0
+                self.b4 = 0.001
+        else:
+            if fault_mode == 1:
+                self.e1 = 1
+                self.e2 = 0.8
+                self.e3 = 0.6 + 0.1 * np.cos(0.5 * np.pi * t)
+                self.e4 = 0
+            elif fault_mode == 2:
+                self.e1 = 0.8
+                self.e2 = 0.7
+                self.e3 = 0.6 + 0.1 * np.cos(0.5 * np.pi * t)
+                self.e4 = 0
+
+            if fault_mode != 0:
+                self.b1 = 0
+                self.b2 = 0.003
+                self.b3 = 0
+                self.b4 = -0.004
+
+    def reset(self):
+        self.u_f = np.zeros((4, 1))
+        self.fault_mode = np.random.randint(0, 3)
+        print("fault mode: ", self.fault_mode)
+
+        return Satellite.reset(self)
+
+
+class SunPointSatellite(Satellite):
+    def __init__(self, sd=np.array([[0], [0], [1]]), si=None, t_max=200, ts=0.1):
+        super().__init__(t_max, ts)
+
+        obs = np.array([5, 5, 5, 1, 1], dtype=np.float32)
+        action = np.array([1, 1, 1, 1], dtype=np.float32)
+        self.action_space = spaces.Box(-action, action, dtype=np.float32)
+        self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
+
+        self.sd = sd
+        self.sd = self.sd / np.linalg.norm(self.sd)
+        self.si = si
+        if si is None:
+            self.si = np.random.random((3, 1))
+        self.si = self.si / np.linalg.norm(self.si)
+        self.sb = None
+        self.se = None
+
+        self.theta_buffer = []
+    
+    def update_se(self):
+        R = Rotation.from_quat(self.q.flatten()).as_matrix()
+        self.sb = R @ self.si
+        self.sb = self.sb / np.linalg.norm(self.sb)
+        self.se = np.cross(self.sb.flatten(), self.sd.flatten())
+        theta = np.arccos(np.dot(self.sb.flatten(), self.sd.flatten()))
+        self.theta_buffer.append(theta*180/np.pi)
+
+    def step_sun_point_satellite(self):
+        self.update_se()
+        omegae = self.state[4:7]
+        self.state = np.concatenate([omegae.flatten(), self.se.flatten()[:2]], axis=0).flatten()
+        return reward
+
+    def step(self, torque):
+        torque = torque.reshape(-1, 1)
+        state, _, done, info = Satellite.step(self, torque)
+        self.step_sun_point_satellite()
+        reward = self.reward(self.u_buffer[-1], self.omega_e_buffer[-1], self.se)
+        return state, reward, done, info
+
+    def reward(self, f, omega_e, se):
+        reward_1 = 0
+        reward_2 = -4 * np.linalg.norm(f)
+        reward_3 = -10 * np.linalg.norm(se)
+        reward_4 = -10 * np.linalg.norm(omega_e)
+        reward = reward_1 + reward_2 + reward_3 + reward_4
+        return reward
+
+    def reset(self):
+        state = Satellite.reset(self)
+        self.update_se()
+        omegae = state[4:7]
+        self.state = np.concatenate([omegae.flatten(), self.se.flatten()[:2]], axis=0).flatten()
+        return self.state
+
+    def plot(self):
+        times = np.linspace(0, self.t_max, len(self.theta_buffer))
+        theta_buffer = np.array(self.theta_buffer)
+
+        # 绘制se
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(times, theta_buffer, label='theta')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Theta')
+        return super().plot()
+        
+
+class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
+    def __init__(self, fault_mode=0, sd=np.array([[0], [0], [1]]), si=None, t_max=200, ts=0.1):
+        FaultSatellite.__init__(self, fault_mode=fault_mode, t_max=t_max, ts=ts)
+        SunPointSatellite.__init__(self, sd=sd, si=si, t_max=t_max, ts=ts)
+
+        obs = np.array([5, 5, 5, 1, 1], dtype=np.float32)
+        action = np.array([1, 1, 1, 1], dtype=np.float32)
+        self.action_space = spaces.Box(-action, action, dtype=np.float32)
+        self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
+
+    def step(self, torque):
+        torque = torque.reshape(-1, 1)
+        FaultSatellite.step_fault_satellite(self, torque)
+        u = torque + self.u_f
+        # u = torque
+        self.state, _, done, info = Satellite.step(self, u)
+        SunPointSatellite.step_sun_point_satellite(self)
+        reward = self.reward(self.u_buffer[-1], self.omega_e_buffer[-1], self.se)
+        return self.state, reward, done, info
+
+    def reward(self, f, omega_e, se):
+        reward_1 = 0
+        reward_2 = -4 * np.linalg.norm(f)
+        reward_3 = -10 * np.linalg.norm(se)
+        reward_4 = -10 * np.linalg.norm(omega_e)
+        reward = reward_1 + reward_2 + reward_3 + reward_4
+        return reward
+    
+    def reset(self):
+        FaultSatellite.reset(self)
+        return SunPointSatellite.reset(self)
+
+
+# test case
+if __name__ == "__main__":
+    env = FaultSatellite()
+    env.reset()
+    for i in range(100):
+        torque = np.random.random((4, 1)) * 0.1
+        state, reward, done, info = env.step(torque)
+        print(state)
+
+    env.plot()
+
+

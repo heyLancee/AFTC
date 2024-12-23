@@ -166,15 +166,16 @@ class FaultSatellite(Satellite):
         self.b3 = 0
         self.b4 = 0
 
-        self.u_f = None
+        self.uf_buffer = None
 
     def update_u_f(self, torque):
         self.fault_inject(self.t, self.fault_mode)
         E = np.diag([self.e1, self.e2, self.e3, self.e4])
         B = np.array([self.b1, self.b2, self.b3, self.b4])
-        self.u_f = - E @ torque + B.reshape(-1, 1)
+        u_f = - E @ torque + B.reshape(-1, 1)
         # u_f要保证torque+u_f得到的值在u_max和-u_max之间
-        self.u_f = np.clip(torque.flatten() + self.u_f.flatten(), -self.u_max, self.u_max).reshape(-1, 1) - torque
+        u_f = np.clip(torque.flatten() + u_f.flatten(), -self.u_max, self.u_max).reshape(-1, 1) - torque
+        self.uf_buffer.append(u_f.flatten())
 
     def step_fault_satellite(self, torque):
         torque = torque.reshape(-1, 1)
@@ -182,7 +183,7 @@ class FaultSatellite(Satellite):
 
     def step(self, torque):
         self.step_fault_satellite(torque)
-        u = torque + self.u_f
+        u = torque + self.uf_buffer[-1].reshape(-1, 1)
         return Satellite.step(self, u)
 
     def fault_inject(self, t, fault_mode):
@@ -260,8 +261,24 @@ class FaultSatellite(Satellite):
                 self.b3 = 0
                 self.b4 = -0.004
 
+    def plot_fault_satellite(self):
+        times = np.linspace(0, self.t_max, len(self.uf_buffer))
+        uf_buffer = np.array(self.uf_buffer)
+
+        # 绘制se
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(times, uf_buffer, label='u_f')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('fault torque')
+
+    def plot(self):
+        self.plot_fault_satellite()
+        return super().plot()
+
     def reset_fault_satellite(self):
-        self.u_f = np.zeros((4, 1))
+        self.uf_buffer = []
         self.fault_mode = np.random.randint(0, 3)
         # print("fault mode: ", self.fault_mode)
 
@@ -302,7 +319,6 @@ class SunPointSatellite(Satellite):
         self.update_se()
         omegae = self.state[4:7]
         self.state = np.concatenate([omegae.flatten(), self.se.flatten()[:2]], axis=0).flatten()
-        return reward
 
     def step(self, torque):
         torque = torque.reshape(-1, 1)
@@ -327,8 +343,8 @@ class SunPointSatellite(Satellite):
         Satellite.reset(self)
         self.reset_sun_point_satellite()
         return self.state
-
-    def plot(self):
+    
+    def plot_sun_point_satellite(self):
         times = np.linspace(0, self.t_max, len(self.theta_buffer))
         theta_buffer = np.array(self.theta_buffer)
 
@@ -339,6 +355,9 @@ class SunPointSatellite(Satellite):
         ax.legend()
         ax.set_xlabel('Time')
         ax.set_ylabel('Theta')
+
+    def plot(self):
+        self.plot_sun_point_satellite()
         return super().plot()
         
 
@@ -355,7 +374,7 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
     def step(self, torque):
         torque = torque.reshape(-1, 1)
         FaultSatellite.step_fault_satellite(self, torque)
-        u = torque + self.u_f
+        u = torque + self.uf_buffer[-1].reshape(-1, 1)
         # u = torque
         self.state, _, done, info = Satellite.step(self, u)
         SunPointSatellite.step_sun_point_satellite(self)
@@ -375,11 +394,16 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         FaultSatellite.reset_fault_satellite(self)
         SunPointSatellite.reset_sun_point_satellite(self)
         return self.state
+    
+    def plot(self):
+        self.plot_fault_satellite()
+        self.plot_sun_point_satellite()
+        return super().plot()
 
 
 # test case
 if __name__ == "__main__":
-    env = FaultSatellite()
+    env = SunPointSatellite()
     env.reset()
     for i in range(100):
         torque = np.random.random((4, 1)) * 0.1

@@ -5,8 +5,6 @@ import argparse
 import os
 import utils
 import TD3
-import OurDDPG
-import DDPG
 from DynamicNet import AttitudeDynamicsNN
 from eval_model import eval_policy
 from satellite import *
@@ -98,10 +96,8 @@ if __name__ == "__main__":
 		kwargs["noise_clip"] = args.noise_clip * max_action
 		kwargs["policy_freq"] = args.policy_freq
 		policy = TD3.TD3(**kwargs)
-	elif args.policy == "OurDDPG":
-		policy = OurDDPG.DDPG(**kwargs)
-	elif args.policy == "DDPG":
-		policy = DDPG.DDPG(**kwargs)
+	else:
+		raise NotImplementedError
 
 	if args.load_model != "":
 		policy_file = file_name if args.load_model == "default" else args.load_model

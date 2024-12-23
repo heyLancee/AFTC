@@ -1,13 +1,10 @@
-import argparse
-import matplotlib.pyplot as plt
-import numpy as np
 import gym
 import pandas as pd
 import torch
 
 from DynamicNet import AttitudeDynamicsNN
-from TD3 import TD3
-from controllers import SunPointController
+import DynamicNet
+import TD3
 from satellite import *
 
 
@@ -82,9 +79,7 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
     state, done = eval_env.reset(), False
     if fault_mode != -1:
         eval_env.fault_mode = fault_mode
-    state = np.concatenate((state, np.zeros(4)))
-
-    uf = []
+    state = np.concatenate((state, np.zeros(DynamicNet.OUTPUT_NUM)))
 
     while not done:
         if agent is not None:
@@ -92,7 +87,7 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
         else:
             agent_action = np.zeros(4)
         action = np.diag(agent_action) @ eval_env.u_max
-
+        
         omega_last = eval_env.omega.flatten()
         next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
 
@@ -101,7 +96,6 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
         pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0))
         pred = pred.detach().numpy()
 
-        error = eval_env.u_f.flatten() - pred.flatten()
         next_state = np.concatenate((next_state.flatten(), pred.flatten()))
 
         state = next_state
@@ -109,7 +103,6 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
         states.append(state)
         rewards.append(reward)
         actions.append(action)
-        uf.append(eval_env.u_f.flatten())
 
     # 在循环结束后转换为NumPy数组
     states = np.array(states)
@@ -129,8 +122,6 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
 
     if is_plot:
         eval_env.plot()
-        plt.plot(uf)
-        plt.show()
 
     return np.sum(rewards)
 
@@ -175,7 +166,7 @@ if __name__ == "__main__":
     policy = "TD3"
     seed = np.random.randint(1, 100)
     env_name = "SunPointFaultSatellite"
-    dynamic_net_path = "models/attitude_dynamics_model.pth"
+    dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = 128
     discount = 0.99
     tau = 0.005
@@ -204,7 +195,7 @@ if __name__ == "__main__":
     np.random.seed(seed)
 
     state_dim = env.observation_space.shape[0]
-    state_dim += 3
+    state_dim += TD3.STATE_APPEND_NUM
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
 
@@ -222,21 +213,20 @@ if __name__ == "__main__":
         kwargs["policy_noise"] = policy_noise * max_action
         kwargs["noise_clip"] = noise_clip * max_action
         kwargs["policy_freq"] = policy_freq
-        policy = TD3(**kwargs)
+        policy = TD3.TD3(**kwargs)
     else:
         raise NotImplementedError
 
     if model_name != "":
         policy.load(f"./models/{model_name}")
 
-    dynamicNet = AttitudeDynamicsNN(hidden_size)
-    if dynamic_net_path != "":
-        print(f"Load dynamic net from {dynamic_net_path}")
-        dynamicNet.load_model(dynamic_net_path)
+    # dynamicNet = DynamicNet.AttitudeDynamicsNN(hidden_size)
+    # if dynamic_net_path != "":
+    #     print(f"Load dynamic net from {dynamic_net_path}")
+    #     dynamicNet.load_model(dynamic_net_path)
+
+    dynamicNet = Satellite()
 
     # Evaluate untrained policy
-    path = "result.csv"
+    path = "results/eval_res.csv"
     eval_policy(policy, dynamicNet, env_name, 1, seed, path, is_plot=True)
-
-
-

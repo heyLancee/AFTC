@@ -6,9 +6,10 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import argparse
 from satellite import *
+import TD3
 
 INPUT_NUM = 10
-OUTPUT_NUM = 4
+OUTPUT_NUM = TD3.STATE_APPEND_NUM
 
 
 class AttitudeDynamicsNN(nn.Module):

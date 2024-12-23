@@ -92,7 +92,7 @@ class Satellite:
         times = np.linspace(0, self.t_max, len(qe_buffer))
 
         # qe_buffer
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
         ax.plot(times, qe_buffer[:, 0], label='qe0')
         ax.plot(times, qe_buffer[:, 1], label='qe1')
@@ -103,7 +103,7 @@ class Satellite:
         ax.set_ylabel('Quaternion') 
 
         # omega_e_buffer
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
         ax.plot(times, omega_e_buffer[:, 0], label='omega0')
         ax.plot(times, omega_e_buffer[:, 1], label='omega1')
@@ -113,7 +113,7 @@ class Satellite:
         ax.set_ylabel('Omega')
 
         # u_buffer
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
         ax.plot(times, u_buffer[:, 0], label='ux')
         ax.plot(times, u_buffer[:, 1], label='uy')
@@ -266,9 +266,12 @@ class FaultSatellite(Satellite):
         uf_buffer = np.array(self.uf_buffer)
 
         # 绘制se
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
-        ax.plot(times, uf_buffer, label='u_f')
+        ax.plot(times, uf_buffer[:, 0], label='uf0')
+        ax.plot(times, uf_buffer[:, 1], label='uf1')
+        ax.plot(times, uf_buffer[:, 2], label='uf2')
+        ax.plot(times, uf_buffer[:, 3], label='uf3')
         ax.legend()
         ax.set_xlabel('Time')
         ax.set_ylabel('fault torque')
@@ -349,7 +352,7 @@ class SunPointSatellite(Satellite):
         theta_buffer = np.array(self.theta_buffer)
 
         # 绘制se
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
         ax.plot(times, theta_buffer, label='theta')
         ax.legend()
@@ -398,7 +401,7 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
     def plot(self):
         self.plot_fault_satellite()
         self.plot_sun_point_satellite()
-        return super().plot()
+        return Satellite.plot(self)
 
 
 # test case

@@ -5,8 +5,6 @@ import gym
 import pandas as pd
 import torch
 
-import DDPG
-import OurDDPG
 from DynamicNet import AttitudeDynamicsNN
 from TD3 import TD3
 from controllers import SunPointController
@@ -225,10 +223,8 @@ if __name__ == "__main__":
         kwargs["noise_clip"] = noise_clip * max_action
         kwargs["policy_freq"] = policy_freq
         policy = TD3(**kwargs)
-    elif policy == "OurDDPG":
-        policy = OurDDPG.DDPG(**kwargs)
-    elif policy == "DDPG":
-        policy = DDPG.DDPG(**kwargs)
+    else:
+        raise NotImplementedError
 
     if model_name != "":
         policy.load(f"./models/{model_name}")

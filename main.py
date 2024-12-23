@@ -13,7 +13,7 @@ from satellite import *
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--dir", default="")
-	parser.add_argument("--policy", default="TD3")                  # Policy name (TD3, DDPG or OurDDPG)
+	parser.add_argument("--policy", default="TD3")                  # Policy name (TD3)
 	parser.add_argument("--env", default="HalfCheetah-v2")          # OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)              # Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=2e3, type=int)# Time steps initial random policy is used

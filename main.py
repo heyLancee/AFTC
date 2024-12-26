@@ -34,10 +34,10 @@ if __name__ == "__main__":
 	parser.add_argument("--dyn_net_path", default="")
 	args = parser.parse_args()
 
-	args.policy = "TD3"
-	args.seed = 0
-	args.env = "SunPointFaultSatellite"
-	args.fault_mode = 1
+	# args.policy = "TD3"
+	# args.seed = 0
+	# args.env = "SunPointFaultSatellite"
+	# args.fault_mode = 1
 	# args.dyn_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
 
 	if args.dir != "":
@@ -139,18 +139,17 @@ if __name__ == "__main__":
 		torque = np.diag(action) @ env.u_max
 
 		# dynamic net
-		net_input = np.concatenate((env.omega.flatten(), torque.flatten(), np.zeros(3)))
+		net_input = np.concatenate((env.omega.flatten(), (env.C@torque).flatten()))
+		pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
 
 		# Perform action
 		next_state, reward, done, _ = env.step(torque.reshape(-1, 1))
 		done_bool = float(done) if episode_timesteps < env._max_episode_steps else 0
 
-		net_input[7:10] = env.omega.flatten()
-		pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
-		pred_error = env.uf_buffer[-1].flatten() - pred.flatten()
+		pred_error = env.omega.flatten() - pred.flatten()
 		pred_errors.append(pred_error)
 	
-		next_state = np.concatenate((next_state.flatten(), pred.flatten()))
+		next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
 		
 		# Store data in replay buffer
 		replay_buffer.add(state, action, next_state, reward, done_bool)

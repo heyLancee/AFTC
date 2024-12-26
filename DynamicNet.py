@@ -8,8 +8,10 @@ import argparse
 from satellite import *
 import TD3
 
-INPUT_NUM = 10
+INPUT_NUM = 6
 OUTPUT_NUM = TD3.STATE_APPEND_NUM
+
+torch.set_printoptions(precision=8)
 
 
 class AttitudeDynamicsNN(nn.Module):
@@ -18,9 +20,9 @@ class AttitudeDynamicsNN(nn.Module):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.fc1 = nn.Linear(INPUT_NUM, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, OUTPUT_NUM)
+        self.fc1 = nn.Linear(INPUT_NUM, 64)
+        self.fc2 = nn.Linear(64, 128)
+        self.fc3 = nn.Linear(128, OUTPUT_NUM)
 
     @staticmethod
     def normalize_quaternion(q):
@@ -49,6 +51,9 @@ class AttitudeDynamicsNN(nn.Module):
         criterion = nn.MSELoss()  # 使用均方误差作为损失函数
         optimizer = optim.Adam(self.parameters(), lr=learning_rate)
 
+        # 训练过程中逐渐降低学习率
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.9)
+
         eval_loss = []
 
         # 训练模型
@@ -71,10 +76,12 @@ class AttitudeDynamicsNN(nn.Module):
                 loss.backward()
                 optimizer.step()
 
+            # 降低学习率
+            scheduler.step()
+
             if (epoch + 1) % 10 == 0:
                 # test
-                omega = self.forward(X_test)
-                y_pred = omega
+                y_pred = self.forward(X_test)
                 eval_loss.append(criterion(y_pred, y_test).item())
 
                 print(f"Epoch [{epoch + 1}/{num_epochs}], Eval loss: {eval_loss[-1]:.8f}")
@@ -140,20 +147,15 @@ def eval_net_in_env(env_name, fault_mode, dynamic_net_path, hidden_size):
         # 转变成输出力矩，liag * u_max
         action = np.diag(efficiency) @ env.u_max  # 计算力矩
 
-        input = np.concatenate((env.omega.flatten(), action, np.zeros(3)))
+        input = np.concatenate((env.omega.flatten(), (env.C@action).flatten()))
+        input = torch.tensor(input, dtype=torch.float32).reshape((1, -1))
+        pred = dynamic_net.forward(input).cpu().detach().numpy()
 
         # 环境更新
         _, _, done, _ = env.step(action.reshape(-1, 1))
 
-        input[7:10] = env.omega.flatten()
-
-        input = torch.tensor(input, dtype=torch.float32).reshape((1, -1))
-        pred = dynamic_net.forward(input).cpu().detach().numpy()
-
         # 计算误差
-        actual = np.zeros(4)
-        if hasattr(env, 'u_f'):
-            actual = env.u_f.flatten()
+        actual = env.omega.flatten()
         preds.append(pred.flatten())
         actuals.append(actual.flatten())
         error.append(pred.flatten() - actual.flatten())
@@ -168,14 +170,12 @@ def eval_net_in_env(env_name, fault_mode, dynamic_net_path, hidden_size):
     sub_plot_func(fig, 411, [preds[:, 0], actuals[:, 0]], ['pred0', 'actual0'], 'Time', 'omega0')
     sub_plot_func(fig, 412, [preds[:, 1], actuals[:, 1]], ['pred1', 'actual1'], 'Time', 'omega1')
     sub_plot_func(fig, 413, [preds[:, 2], actuals[:, 2]], ['pred2', 'actual2'], 'Time', 'omega2')
-    sub_plot_func(fig, 414, [preds[:, 3], actuals[:, 3]], ['pred3', 'actual3'], 'Time', 'omega3')
     plt.show()
 
     fig = plt.figure()
     sub_plot_func(fig, 411, [error[:, 0]], ['e0'], 'Time', 'e0')
     sub_plot_func(fig, 412, [error[:, 1]], ['e1'], 'Time', 'e1')
     sub_plot_func(fig, 413, [error[:, 2]], ['e2'], 'Time', 'e2')
-    sub_plot_func(fig, 414, [error[:, 3]], ['e3'], 'Time', 'e3')
     plt.show()
 
 
@@ -209,10 +209,10 @@ if __name__ == '__main__':
     lr = args.lr
     save_model = args.save_model
 
-    env_name = "FaultSatellite"
+    env_name = "Satellite"
     hidden_size = 128
     # save_model = True
-    model_load_path = r"models/attitude_dynamics_model.pth"
+    model_load_path = r"models/dynamic_net/attitude_dynamics_model.pth"
 
     # 打印一些log
     print("---------------------------------------")
@@ -278,4 +278,4 @@ if __name__ == '__main__':
     # sub_plot_func(fig, 313, [omega[:, 2]], ['omegae2'], 'Time', 'omegae2')
     # plt.show()
 
-    eval_net_in_env(env_name, 2, model_load_path, hidden_size)
+    eval_net_in_env(env_name, 0, model_load_path, hidden_size)

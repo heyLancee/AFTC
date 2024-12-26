@@ -88,16 +88,15 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
             agent_action = np.zeros(4)
         action = np.diag(agent_action) @ eval_env.u_max
         
-        omega_last = eval_env.omega.flatten()
-        next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
-
         # dynamic net
-        net_input = np.concatenate((omega_last, action.flatten(), eval_env.omega.flatten()))
-        pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0))
-        pred = pred.detach().numpy()
+        net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
+        pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
 
-        next_state = np.concatenate((next_state.flatten(), pred.flatten()))
+        next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
+        
+        pred_error = eval_env.omega.flatten() - pred.flatten()
 
+        next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
         state = next_state
 
         states.append(state)

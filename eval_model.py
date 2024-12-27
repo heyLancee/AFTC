@@ -164,6 +164,7 @@ def plot_result(data: pd.DataFrame):
 if __name__ == "__main__":
     policy = "TD3"
     seed = np.random.randint(1, 100)
+    # seed = 2
     env_name = "SunPointFaultSatellite"
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = 128
@@ -172,7 +173,7 @@ if __name__ == "__main__":
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    model_name = ""
+    policy_model_path = "2024-12-26_21-56-43_1\TD3_SunPointFaultSatellite_1"
 
     if env_name == "Satellite":
         env = Satellite()
@@ -216,15 +217,13 @@ if __name__ == "__main__":
     else:
         raise NotImplementedError
 
-    if model_name != "":
-        policy.load(f"./models/{model_name}")
+    if policy_model_path != "":
+        policy.load(f"./models/{policy_model_path}")
 
-    # dynamicNet = DynamicNet.AttitudeDynamicsNN(hidden_size)
-    # if dynamic_net_path != "":
-    #     print(f"Load dynamic net from {dynamic_net_path}")
-    #     dynamicNet.load_model(dynamic_net_path)
-
-    dynamicNet = Satellite()
+    dynamicNet = DynamicNet.AttitudeDynamicsNN(hidden_size)
+    if dynamic_net_path != "":
+        print(f"Load dynamic net from {dynamic_net_path}")
+        dynamicNet.load_model(dynamic_net_path)
 
     # Evaluate untrained policy
     path = "results/eval_res.csv"

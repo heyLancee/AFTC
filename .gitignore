@@ -2,5 +2,6 @@
 .vscode/
 __pycache__
 # models/
-results/
+# results/
+results/eval_res.csv
 sample_data/

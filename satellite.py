@@ -39,7 +39,7 @@ class Satellite:
         self.q = None
         self.omega = None
         self.qd = None
-        self.u_max = np.array([0.08, 0.08, 0.08, 0.08])
+        self.u_max = np.array([0.05, 0.05, 0.05, 0.05])
 
         obs = np.array([1, 1, 1, 1, 5, 5, 5], dtype=np.float32)
         action = np.array([1, 1, 1, 1], dtype=np.float32)

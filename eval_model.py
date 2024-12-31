@@ -6,6 +6,7 @@ from DynamicNet import AttitudeDynamicsNN
 import DynamicNet
 import TD3
 from satellite import *
+from pyflywheel import FlyWheel
 
 
 def eval_pid(pid, env_name, seed, path=None, is_plot=False):
@@ -125,6 +126,94 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
     return np.sum(rewards)
 
 
+def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_plot=False):
+    if env_name == "Satellite":
+        eval_env = Satellite()
+    elif env_name == "FaultSatellite":
+        eval_env = FaultSatellite()
+    elif env_name == "SunPointSatellite":
+        eval_env = SunPointSatellite()
+    elif env_name == "SunPointFaultSatellite":
+        eval_env = SunPointFaultSatellite()
+    else:
+        eval_env = gym.make(env_name)
+    eval_env.seed(seed)
+
+    rewards = []
+    states = []
+    actions = []
+    state, done = eval_env.reset(), False
+    if fault_mode != -1:
+        eval_env.fault_mode = fault_mode
+    state = np.concatenate((state, np.zeros(DynamicNet.OUTPUT_NUM)))
+
+    global torque_0
+    torque_0 = 0
+
+    global flywheel
+    flywheel = FlyWheel(callback=callback)
+    flywheel.connect()
+
+    def callback(telemetry, last_telemetry):
+        # 修改力矩值
+        global torque_0, flywheel
+        # 差分计算torque
+        speed = telemetry['flywheel_speed_feedback']
+        last_speed = last_telemetry['flywheel_speed_feedback']
+        timestamp = telemetry['timestamp']
+        last_timestamp = last_telemetry['timestamp']
+        torque_0 = (speed - last_speed) / (timestamp - last_timestamp) * flywheel.inertia
+
+    flywheel.set_speed(50)  # 50转初速度
+    
+    while not done:
+        if agent is not None:
+            agent_action = agent.select_action(np.array(state))
+        else:
+            agent_action = np.zeros(4)
+        action = np.diag(agent_action) @ eval_env.u_max
+        
+        # 这里只模拟飞轮0
+        flywheel.set_torque(action[0])
+        action[0] = torque_0
+
+        # dynamic net
+        net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
+        pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
+
+        next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
+        
+        pred_error = eval_env.omega.flatten() - pred.flatten()
+
+        next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
+        state = next_state
+
+        states.append(state)
+        rewards.append(reward)
+        actions.append(action)
+
+    # 在循环结束后转换为NumPy数组
+    states = np.array(states)
+    rewards = np.array(rewards)
+    actions = np.array(actions)
+
+    # print("---------------------------------------")
+    # print(f"reward: {np.mean(rewards)}")
+    # print("---------------------------------------")
+
+    if path is not None:
+        df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
+        df_uc = pd.DataFrame(actions, columns=[f'u_{i}' for i in range(len(actions[0]))])
+        df = pd.concat([df, df_uc], axis=1)
+        df['reward'] = rewards
+        df.to_csv(path, index=False)
+
+    if is_plot:
+        eval_env.plot()
+
+    return np.sum(rewards)
+
+
 def plot_result(data: pd.DataFrame):
     # 提取四元数和角速度
     quaternions = data[['state_0', 'state_1', 'state_2', 'state_3']]
@@ -163,9 +252,10 @@ def plot_result(data: pd.DataFrame):
 
 if __name__ == "__main__":
     policy = "TD3"
-    seed = np.random.randint(1, 100)
-    # seed = 2
+    # seed = np.random.randint(1, 100)
+    seed = 4
     env_name = "SunPointFaultSatellite"
+    fault_mode = 0
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = 128
     discount = 0.99
@@ -227,4 +317,4 @@ if __name__ == "__main__":
 
     # Evaluate untrained policy
     path = "results/eval_res.csv"
-    eval_policy(policy, dynamicNet, env_name, 1, seed, path, is_plot=True)
+    eval_policy(policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)

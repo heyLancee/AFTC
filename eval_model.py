@@ -1,12 +1,13 @@
 import gym
 import pandas as pd
 import torch
-
+import time
 from DynamicNet import AttitudeDynamicsNN
 import DynamicNet
 import TD3
 from satellite import *
 from pyflywheel import FlyWheel
+from PyRealTime import RealTimeSimulation
 
 
 def eval_pid(pid, env_name, seed, path=None, is_plot=False):
@@ -146,17 +147,11 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
     if fault_mode != -1:
         eval_env.fault_mode = fault_mode
     state = np.concatenate((state, np.zeros(DynamicNet.OUTPUT_NUM)))
-
-    global torque_0
     torque_0 = 0
 
-    global flywheel
-    flywheel = FlyWheel(callback=callback)
-    flywheel.connect()
-
-    def callback(telemetry, last_telemetry):
+    def fly_callback(telemetry, last_telemetry):
         # 修改力矩值
-        global torque_0, flywheel
+        nonlocal torque_0, flywheel
         # 差分计算torque
         speed = telemetry['flywheel_speed_feedback']
         last_speed = last_telemetry['flywheel_speed_feedback']
@@ -164,9 +159,15 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
         last_timestamp = last_telemetry['timestamp']
         torque_0 = (speed - last_speed) / (timestamp - last_timestamp) * flywheel.inertia
 
+    flywheel = FlyWheel(callback=fly_callback)
+    flywheel.connect()
+
+    real_time_sim = RealTimeSimulation(env.ts)
+
     flywheel.set_speed(50)  # 50转初速度
-    
-    while not done:
+
+    def simulation_step(current_time):
+        nonlocal state, done, flywheel
         if agent is not None:
             agent_action = agent.select_action(np.array(state))
         else:
@@ -191,6 +192,17 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
         states.append(state)
         rewards.append(reward)
         actions.append(action)
+
+        return done
+
+    real_time_sim.start(simulation_step)
+
+    # wait until RealTimeSimulation is stop
+    while real_time_sim.is_running:
+        time.sleep(0.1)
+
+    real_time_sim.stop()
+    time.sleep(1)
 
     # 在循环结束后转换为NumPy数组
     states = np.array(states)
@@ -317,4 +329,4 @@ if __name__ == "__main__":
 
     # Evaluate untrained policy
     path = "results/eval_res.csv"
-    eval_policy(policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)
+    eval_policy_with_flywheel(policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)

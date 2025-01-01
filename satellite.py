@@ -15,10 +15,10 @@ class Satellite:
             return
 
         self.is_init = False
-        self.tau = ts
+        self.ts = ts
         self.t = 0
         self.t_max = t_max
-        self._max_episode_steps = int(self.t_max / self.tau)
+        self._max_episode_steps = int(self.t_max / self.ts)
 
         self.j = np.array([
             [12, 0, 0],
@@ -52,7 +52,7 @@ class Satellite:
         torque = np.clip(torque.flatten(), -self.u_max, self.u_max)
         u = (self.C @ torque).reshape(-1, 1)
 
-        self.q, self.omega = R_K(self.q, self.omega, self.tau, self.j_inv, self.j, u)
+        self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j, u)
 
         omega_d = get_omega_d(self.t)
         qe = get_q_e(self.qd, self.q)
@@ -65,7 +65,7 @@ class Satellite:
         self.omega_e_buffer.append(omega_e.flatten())
         reward = self.reward(u, qev, omega_e)
 
-        self.t += self.tau
+        self.t += self.ts
         done = False
         if self.t >= self.t_max:
             done = True

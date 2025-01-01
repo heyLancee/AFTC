@@ -332,9 +332,9 @@ class SunPointSatellite(Satellite):
 
     def reward(self, f, omega_e, se):
         reward_1 = 0
-        reward_2 = -4 * np.linalg.norm(f)
+        reward_2 = -8 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -10 * np.linalg.norm(omega_e)
+        reward_4 = -20 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
 
@@ -386,9 +386,9 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
 
     def reward(self, f, omega_e, se):
         reward_1 = 0
-        reward_2 = -4 * np.linalg.norm(f)
+        reward_2 = -8 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -10 * np.linalg.norm(omega_e)
+        reward_4 = -20 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
     

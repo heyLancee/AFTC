@@ -280,9 +280,9 @@ def plot_result(data: pd.DataFrame):
 if __name__ == "__main__":
     policy = "TD3"
     # seed = np.random.randint(1, 100)
-    seed = 4
+    seed = 42
     env_name = "SunPointFaultSatellite"
-    fault_mode = 0
+    fault_mode = 2
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = 128
     discount = 0.99
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    policy_model_path = "u_max_008\TD3_SunPointFaultSatellite_1"
+    policy_model_path = "u_max_005\TD3_SunPointFaultSatellite_1"
 
     if env_name == "Satellite":
         env = Satellite()
@@ -344,4 +344,4 @@ if __name__ == "__main__":
 
     # Evaluate untrained policy
     path = "results/eval_res.csv"
-    eval_policy_with_flywheel(policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)
+    eval_policy(policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)

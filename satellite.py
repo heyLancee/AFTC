@@ -252,7 +252,7 @@ class FaultSatellite(Satellite):
             elif fault_mode == 2:
                 self.e1 = 0.8
                 self.e2 = 0.7
-                self.e3 = 0.6 + 0.1 * np.cos(0.5 * np.pi * t)
+                self.e3 = 0.6
                 self.e4 = 0
 
             if fault_mode != 0:

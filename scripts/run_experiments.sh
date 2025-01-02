@@ -26,7 +26,12 @@ for i in {1..5}; do
     --seed $i \
     --start_timesteps 4000 \
     --load_model "" \
-    --hidden_size 128 \
+    --policy_hidden_size 512 \
+    --dyn_hidden_size 64 128 \
+    --lr 0.0005 \
+    --policy_noise 0.1 \
+    --noise_clip 0.3 \
+    --policy_freq 2 \
     --dyn_net_path "models/dynamic_net/attitude_dynamics_model.pth" \
     --max_timesteps 2000000  &
 done

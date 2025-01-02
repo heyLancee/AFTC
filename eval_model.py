@@ -157,14 +157,29 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
         last_speed = last_telemetry['flywheel_speed_feedback']
         timestamp = telemetry['timestamp']
         last_timestamp = last_telemetry['timestamp']
-        torque_0 = (speed - last_speed) / (timestamp - last_timestamp) * flywheel.inertia
 
-    flywheel = FlyWheel(callback=fly_callback)
+        if timestamp - last_timestamp > 0:
+            torque_0 = (speed - last_speed) / (timestamp - last_timestamp) * flywheel.inertia
+
+        print("--------------------------------")
+        print(f"callback function, speed: {speed}")
+        print(f"last speed: {last_speed}")
+        print(f"timestamp: {timestamp}")
+        print(f"last timestamp: {last_timestamp}")
+        print(f"torque_0: {torque_0}")
+        print("--------------------------------")
+
+    COM = 'COM5'
+    BAUD = 115200
+    flywheel = FlyWheel(port=COM, baudrate=BAUD, auto_polling=True, polling_frequency=100, communication_frequency=1000, 
+                        callback=fly_callback, queue_size=10)
     flywheel.connect()
-
     real_time_sim = RealTimeSimulation(env.ts)
 
-    flywheel.set_speed(50)  # 50转初速度
+    time.sleep(1)
+    flywheel.start()
+    flywheel.set_speed(200)  # 200转初速度
+    time.sleep(1)
 
     def simulation_step(current_time):
         nonlocal state, done, flywheel
@@ -265,7 +280,7 @@ def plot_result(data: pd.DataFrame):
 if __name__ == "__main__":
     policy = "TD3"
     # seed = np.random.randint(1, 100)
-    seed = 420
+    seed = 4
     env_name = "SunPointFaultSatellite"
     fault_mode = 0
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
@@ -275,7 +290,7 @@ if __name__ == "__main__":
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    policy_model_path = "u_max_005\TD3_SunPointFaultSatellite_1"
+    policy_model_path = "u_max_008\TD3_SunPointFaultSatellite_1"
 
     if env_name == "Satellite":
         env = Satellite()

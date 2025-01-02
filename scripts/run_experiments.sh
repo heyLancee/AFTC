@@ -27,7 +27,7 @@ for i in {1..5}; do
     --start_timesteps 4000 \
     --load_model "" \
     --policy_hidden_size 512 \
-    --dyn_hidden_size 64 128 \
+    --dyn_hidden_size 128 \
     --lr 0.0005 \
     --policy_noise 0.1 \
     --noise_clip 0.3 \

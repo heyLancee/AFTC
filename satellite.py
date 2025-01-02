@@ -87,8 +87,9 @@ class Satellite:
     def plot(self):
         qe_buffer = np.array(self.qe_buffer)
         omega_e_buffer = np.array(self.omega_e_buffer) * 180 / np.pi
-        u_buffer = np.array(self.u_buffer)
-
+        u_buffer = [self.C @ u for u in self.u_buffer]
+        u_buffer = np.array(u_buffer)
+        
         times = np.linspace(0, self.t_max, len(qe_buffer))
 
         # qe_buffer
@@ -386,9 +387,9 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
 
     def reward(self, f, omega_e, se):
         reward_1 = 0
-        reward_2 = -8 * np.linalg.norm(f)
+        reward_2 = -10 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -20 * np.linalg.norm(omega_e)
+        reward_4 = -15 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
     

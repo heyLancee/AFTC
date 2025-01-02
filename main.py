@@ -21,16 +21,18 @@ if __name__ == "__main__":
 	parser.add_argument("--eval_episodes", default=10, type=int)
 	parser.add_argument("--max_timesteps", default=1e6, type=int)   # Max time steps to run environment
 	parser.add_argument("--expl_noise", default=0.1, type=float)    # Std of Gaussian exploration noise
+	parser.add_argument("--policy_hidden_size", default=512, type=int)
 	parser.add_argument("--batch_size", default=256, type=int)      # Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99, type=float)     # Discount factor
 	parser.add_argument("--tau", default=0.005, type=float)         # Target network update rate
-	parser.add_argument("--policy_noise", default=0.2)              # Noise added to target policy during critic update
-	parser.add_argument("--noise_clip", default=0.5)                # Range to clip target policy noise
-	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates
+	parser.add_argument("--policy_noise", default=0.2, type=float)              # Noise added to target policy during critic update
+	parser.add_argument("--noise_clip", default=0.5, type=float)                # Range to clip target policy noise
+	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates	
+	parser.add_argument("--lr", default=3e-4, type=float)          # Learning rate
 	parser.add_argument("--save_model", action="store_true", default=True)       # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
 	parser.add_argument("--fault_mode", default=-1)
-	parser.add_argument("--hidden_size", default=128, type=int)
+	parser.add_argument("--dyn_hidden_size", default=128, type=int)
 	parser.add_argument("--dyn_net_path", default="")
 	args = parser.parse_args()
 
@@ -85,6 +87,8 @@ if __name__ == "__main__":
 		"max_action": max_action,
 		"discount": args.discount,
 		"tau": args.tau,
+		"lr": args.lr,
+		"hidden_size": args.policy_hidden_size,
 	}
 
 	# Initialize policy
@@ -102,7 +106,7 @@ if __name__ == "__main__":
 		print("agent load model: ", policy_file)
 		policy.load(f"./models/{policy_file}")
 
-	dynamic_net = AttitudeDynamicsNN(args.hidden_size)
+	dynamic_net = AttitudeDynamicsNN(args.dyn_hidden_size)
 	if args.dyn_net_path != "":
 		print(f"Load dynamic net: {args.dyn_net_path}")
 		dynamic_net.load_model(args.dyn_net_path)
@@ -121,7 +125,7 @@ if __name__ == "__main__":
 	episode_timesteps = 0
 	episode_num = 0
 
-	episode_total_num = int(args.max_timesteps / (env.t_max / env.tau))
+	episode_total_num = int(args.max_timesteps / (env.t_max / env.ts))
 
 	pred_errors = []
 

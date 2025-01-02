@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import argparse
 from satellite import *
 import TD3
+from typing import List
 
 INPUT_NUM = 6
 OUTPUT_NUM = TD3.STATE_APPEND_NUM
@@ -20,9 +21,9 @@ class AttitudeDynamicsNN(nn.Module):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.fc1 = nn.Linear(INPUT_NUM, 64)
-        self.fc2 = nn.Linear(64, 128)
-        self.fc3 = nn.Linear(128, OUTPUT_NUM)
+        self.fc1 = nn.Linear(INPUT_NUM, hidden_size//2)
+        self.fc2 = nn.Linear(hidden_size//2, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, OUTPUT_NUM)
 
     @staticmethod
     def normalize_quaternion(q):

@@ -21,7 +21,7 @@ if __name__ == "__main__":
 	parser.add_argument("--eval_episodes", default=10, type=int)
 	parser.add_argument("--max_timesteps", default=1e6, type=int)   # Max time steps to run environment
 	parser.add_argument("--expl_noise", default=0.1, type=float)    # Std of Gaussian exploration noise
-	parser.add_argument("--policy_hidden_size", default=512, type=int)  # Policy hidden size
+	parser.add_argument("--policy_hidden_size", default=[256, 256], type=int, nargs='+')  # Policy hidden size
 	parser.add_argument("--batch_size", default=256, type=int)      # Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99, type=float)     # Discount factor
 	parser.add_argument("--tau", default=0.005, type=float)         # Target network update rate
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 	parser.add_argument("--save_model", action="store_true", default=True)       # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
 	parser.add_argument("--fault_mode", default=-1)		# Fault mode
-	parser.add_argument("--dyn_hidden_size", default=128, type=int)  # Dynamic net hidden size
+	parser.add_argument("--dyn_hidden_size", default=[64, 128], type=int, nargs='+')  # Dynamic net hidden size
 	parser.add_argument("--dyn_net_path", default="")  # Dynamic net path
 	args = parser.parse_args()
 

@@ -16,14 +16,14 @@ torch.set_printoptions(precision=8)
 
 
 class AttitudeDynamicsNN(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size: List[int]):
         super(AttitudeDynamicsNN, self).__init__()
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.fc1 = nn.Linear(INPUT_NUM, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, OUTPUT_NUM)
+        self.fc1 = nn.Linear(INPUT_NUM, hidden_size[0])
+        self.fc2 = nn.Linear(hidden_size[0], hidden_size[1])
+        self.fc3 = nn.Linear(hidden_size[1], OUTPUT_NUM)
 
     @staticmethod
     def normalize_quaternion(q):

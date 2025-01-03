@@ -63,7 +63,7 @@ class Satellite:
         self.u_buffer.append(torque.flatten())
         self.qe_buffer.append(qe.flatten())
         self.omega_e_buffer.append(omega_e.flatten())
-        reward = self.reward(u, qev, omega_e)
+        reward = self.reward(torque, qev, omega_e)
 
         self.t += self.ts
         done = False
@@ -386,10 +386,12 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         return self.state, reward, done, info
 
     def reward(self, f, omega_e, se):
+        # steady_state_penalty = np.exp(-np.linalg.norm(f) - np.linalg.norm(omega_e))
+        # reward_1 = -2 * steady_state_penalty
         reward_1 = 0
-        reward_2 = -10 * np.linalg.norm(f)
+        reward_2 = -200 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -15 * np.linalg.norm(omega_e)
+        reward_4 = -10 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
     

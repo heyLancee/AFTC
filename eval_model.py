@@ -167,7 +167,7 @@ if __name__ == "__main__":
     # seed = 2
     env_name = "SunPointFaultSatellite"
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
-    hidden_size = 128
+    hidden_size = [64, 128]
     discount = 0.99
     tau = 0.005
     policy_noise = 0.2

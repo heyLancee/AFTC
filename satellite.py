@@ -31,7 +31,8 @@ class Satellite:
             [0, 1, 0, 3 ** 0.5 / 3],
             [0, 0, 1, 3 ** 0.5 / 3]
         ])
-
+        self.omega_buffer = []
+        self.q_buffer = []
         self.u_buffer = []  # 单机输出力矩
         self.qe_buffer = []
         self.omega_e_buffer = []
@@ -60,6 +61,8 @@ class Satellite:
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
 
+        self.omega_buffer.append(self.omega.flatten())
+        self.q_buffer.append(self.q.flatten())
         self.u_buffer.append(torque.flatten())
         self.qe_buffer.append(qe.flatten())
         self.omega_e_buffer.append(omega_e.flatten())
@@ -87,8 +90,8 @@ class Satellite:
     def plot(self):
         qe_buffer = np.array(self.qe_buffer)
         omega_e_buffer = np.array(self.omega_e_buffer) * 180 / np.pi
-        u_buffer = [self.C @ u for u in self.u_buffer]
-        u_buffer = np.array(u_buffer)
+        # u_buffer = [self.C @ u for u in self.u_buffer]
+        u_buffer = np.array(self.u_buffer)
         
         times = np.linspace(0, self.t_max, len(qe_buffer))
 
@@ -106,12 +109,12 @@ class Satellite:
         # omega_e_buffer
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
-        ax.plot(times, omega_e_buffer[:, 0], label='omega0')
-        ax.plot(times, omega_e_buffer[:, 1], label='omega1')
-        ax.plot(times, omega_e_buffer[:, 2], label='omega2')
+        ax.plot(times, omega_e_buffer[:, 0], label='omega_e0')
+        ax.plot(times, omega_e_buffer[:, 1], label='omega_e1')
+        ax.plot(times, omega_e_buffer[:, 2], label='omega_e2')
         ax.legend()
         ax.set_xlabel('Time')
-        ax.set_ylabel('Omega')
+        ax.set_ylabel('Omega_e')
 
         # u_buffer
         fig = plt.figure(figsize=(12, 8))
@@ -122,6 +125,28 @@ class Satellite:
         ax.legend()
         ax.set_xlabel('Time')
         ax.set_ylabel('Torque')
+
+        # q_buffer
+        fig = plt.figure(figsize=(12, 8))
+        ax = fig.add_subplot(111)
+        ax.plot(times, q_buffer[:, 0], label='q0')
+        ax.plot(times, q_buffer[:, 1], label='q1')
+        ax.plot(times, q_buffer[:, 2], label='q2')
+        ax.plot(times, q_buffer[:, 3], label='q3')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Quaternion')
+        
+        # omega_buffer
+        fig = plt.figure(figsize=(12, 8))
+        ax = fig.add_subplot(111)
+        ax.plot(times, omega_buffer[:, 0], label='omega0')
+        ax.plot(times, omega_buffer[:, 1], label='omega1')
+        ax.plot(times, omega_buffer[:, 2], label='omega2')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Omega')
+     
         plt.show()
 
     def reset(self):
@@ -312,7 +337,8 @@ class SunPointSatellite(Satellite):
         self.theta_buffer = []
     
     def update_se(self):
-        R = Rotation.from_quat(self.q.flatten()).as_matrix()
+        q_correct = np.array([self.q[1], self.q[2], self.q[3], self.q[0]])
+        R = Rotation.from_quat(q_correct.flatten()).as_matrix()
         self.sb = R @ self.si
         self.sb = self.sb / np.linalg.norm(self.sb)
         self.se = np.cross(self.sb.flatten(), self.sd.flatten())
@@ -376,6 +402,11 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
     def step(self, torque):
+        if self.t > 120:
+            a = 1
+        
+        if self.t > 180:
+            a = 1
         torque = torque.reshape(-1, 1)
         FaultSatellite.step_fault_satellite(self, torque)
         u = torque + self.uf_buffer[-1].reshape(-1, 1)
@@ -386,8 +417,9 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         return self.state, reward, done, info
 
     def reward(self, f, omega_e, se):
-        reward_1 = 0
-        reward_2 = -10 * np.linalg.norm(f)
+        steady_state_penalty = np.exp(-np.linalg.norm(f) - np.linalg.norm(omega_e))
+        reward_1 = -2 * steady_state_penalty
+        reward_2 = -20 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
         reward_4 = -15 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4

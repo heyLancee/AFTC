@@ -90,8 +90,9 @@ class Satellite:
     def plot(self):
         qe_buffer = np.array(self.qe_buffer)
         omega_e_buffer = np.array(self.omega_e_buffer) * 180 / np.pi
-        # u_buffer = [self.C @ u for u in self.u_buffer]
         u_buffer = np.array(self.u_buffer)
+        q_buffer = np.array(self.q_buffer)
+        omega_buffer = np.array(self.omega_buffer)
         
         times = np.linspace(0, self.t_max, len(qe_buffer))
 
@@ -163,6 +164,8 @@ class Satellite:
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
         self.t = 0
+        self.q_buffer = []
+        self.omega_buffer = []
         self.u_buffer = []
         self.qe_buffer = []
         self.omega_e_buffer = []

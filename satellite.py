@@ -164,6 +164,8 @@ class Satellite:
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
         self.t = 0
+        self.q_buffer = []
+        self.omega_buffer = []
         self.u_buffer = []
         self.qe_buffer = []
         self.omega_e_buffer = []

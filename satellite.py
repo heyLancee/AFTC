@@ -405,11 +405,6 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
     def step(self, torque):
-        if self.t > 120:
-            a = 1
-        
-        if self.t > 180:
-            a = 1
         torque = torque.reshape(-1, 1)
         FaultSatellite.step_fault_satellite(self, torque)
         u = torque + self.uf_buffer[-1].reshape(-1, 1)

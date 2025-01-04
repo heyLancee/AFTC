@@ -120,9 +120,10 @@ class Satellite:
         # u_buffer
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
-        ax.plot(times, u_buffer[:, 0], label='ux')
-        ax.plot(times, u_buffer[:, 1], label='uy')
-        ax.plot(times, u_buffer[:, 2], label='uz')
+        ax.plot(times, u_buffer[:, 0], label='u0')
+        ax.plot(times, u_buffer[:, 1], label='u1')
+        ax.plot(times, u_buffer[:, 2], label='u2')
+        ax.plot(times, u_buffer[:, 3], label='u3')
         ax.legend()
         ax.set_xlabel('Time')
         ax.set_ylabel('Torque')

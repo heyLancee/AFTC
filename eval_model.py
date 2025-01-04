@@ -163,17 +163,20 @@ def plot_result(data: pd.DataFrame):
 
 if __name__ == "__main__":
     policy = "TD3"
-    seed = np.random.randint(1, 100)
-    # seed = 2
+    # seed = np.random.randint(1, 100)
+    seed = 2
     env_name = "SunPointFaultSatellite"
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
-    hidden_size = [64, 128]
+    dyn_hidden_size = [64, 128]
     discount = 0.99
     tau = 0.005
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
+    policy_hidden_size = [256, 256]
     policy_model_path = "2024-12-26_21-56-43_1\TD3_SunPointFaultSatellite_1"
+
+    fault_mode = 1
 
     if env_name == "Satellite":
         env = Satellite()
@@ -205,6 +208,7 @@ if __name__ == "__main__":
         "max_action": max_action,
         "discount": discount,
         "tau": tau,
+        "hidden_size": policy_hidden_size,
     }
 
     # Initialize policy
@@ -220,11 +224,11 @@ if __name__ == "__main__":
     if policy_model_path != "":
         policy.load(f"./models/{policy_model_path}")
 
-    dynamicNet = DynamicNet.AttitudeDynamicsNN(hidden_size)
+    dynamicNet = DynamicNet.AttitudeDynamicsNN(dyn_hidden_size)
     if dynamic_net_path != "":
         print(f"Load dynamic net from {dynamic_net_path}")
         dynamicNet.load_model(dynamic_net_path)
 
     # Evaluate untrained policy
     path = "results/eval_res.csv"
-    eval_policy(policy, dynamicNet, env_name, 1, seed, path, is_plot=True)
+    eval_policy(policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)

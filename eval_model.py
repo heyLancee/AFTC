@@ -284,7 +284,7 @@ if __name__ == "__main__":
     env_name = "SunPointFaultSatellite"
     fault_mode = 2
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
-    hidden_size = 128
+    hidden_size = [64, 128]
     discount = 0.99
     tau = 0.005
     policy_noise = 0.2
@@ -322,6 +322,7 @@ if __name__ == "__main__":
         "max_action": max_action,
         "discount": discount,
         "tau": tau,
+        "hidden_size": [256, 256],
     }
 
     # Initialize policy

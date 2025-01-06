@@ -29,6 +29,7 @@ if __name__ == "__main__":
 	parser.add_argument("--noise_clip", default=0.5, type=float)                # Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates	
 	parser.add_argument("--lr", default=3e-4, type=float)          # Learning rate
+	parser.add_argument("--weight_decay", default=1e-5, type=float)  # Weight decay
 	parser.add_argument("--save_model", action="store_true", default=True)       # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
 	parser.add_argument("--fault_mode", default=-1)
@@ -89,6 +90,7 @@ if __name__ == "__main__":
 		"tau": args.tau,
 		"lr": args.lr,
 		"hidden_size": args.policy_hidden_size,
+		"weight_decay": args.weight_decay
 	}
 
 	# Initialize policy

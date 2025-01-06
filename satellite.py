@@ -156,11 +156,11 @@ class Satellite:
         omega_d = get_omega_d(self.t)
         self.qd = np.random.random((4, 1))
         self.qd = self.qd / np.linalg.norm(self.qd)
-        # self.q = np.random.random((4, 1))
-        self.q = np.array([[0.71601343], [0.37206877], [0.31788925], [0.49783132]])
+        self.q = np.random.random((4, 1))
+        # self.q = np.array([[0.71601343], [0.37206877], [0.31788925], [0.49783132]])
         self.q = self.q / np.linalg.norm(self.q)
-        # self.omega = (2 * np.random.random((3, 1)) - 1) * 0.2
-        self.omega = np.array([[-0.1396], [-0.06177], [0.1859]])
+        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.2
+        # self.omega = np.array([[-0.1396], [-0.06177], [0.1859]])
         qe = get_q_e(self.qd, self.q)
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
@@ -406,11 +406,6 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
     def step(self, torque):
-        if self.t > 120:
-            a = 1
-        
-        if self.t > 180:
-            a = 1
         torque = torque.reshape(-1, 1)
         FaultSatellite.step_fault_satellite(self, torque)
         u = torque + self.uf_buffer[-1].reshape(-1, 1)
@@ -421,11 +416,10 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         return self.state, reward, done, info
 
     def reward(self, f, omega_e, se):
-        steady_state_penalty = np.exp(-np.linalg.norm(f) - np.linalg.norm(omega_e))
-        reward_1 = -2 * steady_state_penalty
-        reward_2 = -20 * np.linalg.norm(f)
+        reward_1 = 0
+        reward_2 = -4 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -15 * np.linalg.norm(omega_e)
+        reward_4 = -8 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
     

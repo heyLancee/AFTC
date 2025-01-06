@@ -280,9 +280,9 @@ def plot_result(data: pd.DataFrame):
 if __name__ == "__main__":
     policy = "TD3"
     # seed = np.random.randint(1, 100)
-    seed = 42
+    seed = 2
     env_name = "SunPointFaultSatellite"
-    fault_mode = 2
+    fault_mode = 0
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = [64, 128]
     discount = 0.99
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    policy_model_path = "u_max_005\TD3_SunPointFaultSatellite_1"
+    policy_model_path = "u_max_005_5\TD3_SunPointFaultSatellite_1"
 
     if env_name == "Satellite":
         env = Satellite()

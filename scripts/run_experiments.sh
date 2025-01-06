@@ -28,7 +28,7 @@ for i in {1..5}; do
     --load_model "" \
     --policy_hidden_size 256 256 \
     --dyn_hidden_size 64 128 \
-    --lr 0.0005 \
+    --lr 0.0003 \
     --policy_noise 0.2 \
     --noise_clip 0.5 \
     --policy_freq 2 \

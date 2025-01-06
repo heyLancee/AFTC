@@ -226,13 +226,13 @@ class FaultSatellite(Satellite):
             if fault_mode == 1:
                 self.e1 = 0.4
                 self.e2 = 0.3
-                self.e3 = 0.6
+                self.e3 = 0.2
                 self.e4 = 0.2
             elif fault_mode == 2:
                 self.e1 = 0.6
-                self.e2 = 0.3
-                self.e3 = 0.4
-                self.e4 = 0.4
+                self.e2 = 0.1
+                self.e3 = 0.2
+                self.e4 = 0
 
             if fault_mode != 0:
                 self.b1 = -0.005
@@ -242,12 +242,12 @@ class FaultSatellite(Satellite):
         elif t < 90:
             if fault_mode == 1:
                 self.e1 = 0.4
-                self.e2 = 0.5
-                self.e3 = 0.4
+                self.e2 = 0.1
+                self.e3 = 0.2
                 self.e4 = 0.1 * np.sin(0.5 * np.pi * t)
             elif fault_mode == 2:
-                self.e1 = 0.7 * np.sin(0.5 * np.pi * t)
-                self.e2 = 0.4
+                self.e1 = 0.5
+                self.e2 = 0.2
                 self.e3 = 0.5 * np.sin(0.5 * np.pi * t)
                 self.e4 = 0
 
@@ -264,9 +264,9 @@ class FaultSatellite(Satellite):
                 self.e4 = 0
             elif fault_mode == 2:
                 self.e1 = 0.4 * np.sin(0.5 * np.pi * t)
-                self.e2 = 0.2
+                self.e2 = 0.3
                 self.e3 = 0.3 + 0.1 * np.cos(0.5 * np.pi * t)
-                self.e4 = 0.4
+                self.e4 = 0
 
             if fault_mode != 0:
                 self.b1 = 0
@@ -363,9 +363,9 @@ class SunPointSatellite(Satellite):
 
     def reward(self, f, omega_e, se):
         reward_1 = 0
-        reward_2 = -8 * np.linalg.norm(f)
+        reward_2 = -4 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -20 * np.linalg.norm(omega_e)
+        reward_4 = -10 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
 
@@ -416,11 +416,10 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         return self.state, reward, done, info
 
     def reward(self, f, omega_e, se):
-        steady_state_penalty = np.exp(-np.linalg.norm(f) - np.linalg.norm(omega_e))
-        reward_1 = -2 * steady_state_penalty
-        reward_2 = -20 * np.linalg.norm(f)
+        reward_1 = 0
+        reward_2 = -4 * np.linalg.norm(f)
         reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -10 * np.linalg.norm(omega_e)
+        reward_4 = -8 * np.linalg.norm(omega_e)
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
     
@@ -446,5 +445,3 @@ if __name__ == "__main__":
         print(state)
 
     env.plot()
-
-

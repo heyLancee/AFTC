@@ -156,11 +156,11 @@ class Satellite:
         omega_d = get_omega_d(self.t)
         self.qd = np.random.random((4, 1))
         self.qd = self.qd / np.linalg.norm(self.qd)
-        self.q = np.random.random((4, 1))
-        # self.q = np.array([[1], [2], [3], [4]])
+        # self.q = np.random.random((4, 1))
+        self.q = np.array([[0.71601343], [0.37206877], [0.31788925], [0.49783132]])
         self.q = self.q / np.linalg.norm(self.q)
-        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.2
-        # self.omega = np.array([[-0.3], [0.1], [0.2]])
+        # self.omega = (2 * np.random.random((3, 1)) - 1) * 0.2
+        self.omega = np.array([[-0.1396], [-0.06177], [0.1859]])
         qe = get_q_e(self.qd, self.q)
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
@@ -342,8 +342,7 @@ class SunPointSatellite(Satellite):
     
     def update_se(self):
         q_correct = np.array([self.q[1], self.q[2], self.q[3], self.q[0]])
-        # q_correct = self.q
-        R = Rotation.from_quat(q_correct.flatten()).as_matrix()
+        R = Rotation.from_quat(q_correct.flatten()).as_matrix().T
         self.sb = R @ self.si
         self.sb = self.sb / np.linalg.norm(self.sb)
         self.se = np.cross(self.sb.flatten(), self.sd.flatten())
@@ -447,7 +446,8 @@ if __name__ == "__main__":
     env = SunPointSatellite()
     env.reset()
     for i in range(100):
-        torque = np.random.random((4, 1)) * 0.1
+        # torque = np.random.random((4, 1)) * 0.1
+        torque = np.array([[0.01], [0.01], [0.01], [0.01]])
         state, reward, done, info = env.step(torque)
         print(state)
 

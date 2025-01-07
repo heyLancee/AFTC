@@ -159,7 +159,7 @@ class Satellite:
         self.q = np.random.random((4, 1))
         # self.q = np.array([[0.71601343], [0.37206877], [0.31788925], [0.49783132]])
         self.q = self.q / np.linalg.norm(self.q)
-        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.2
+        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.1
         # self.omega = np.array([[-0.1396], [-0.06177], [0.1859]])
         qe = get_q_e(self.qd, self.q)
         omega_e = get_omega_e(self.omega, omega_d, qe)

@@ -6,12 +6,28 @@ from satellite_func import *
 from gym import spaces
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
+import logging
+
+
+class Noise:
+    def __init__(self, mean=0.0, std=0.0001, seed=None):
+        self.mean = mean
+        self.std = std
+        if seed is not None:
+            np.random.seed(seed)
+            
+    def add_gaussian_noise(self, value, need_normalize=False):
+        noise = np.random.normal(self.mean, self.std, size=value.shape)
+        value = value + noise
+        if need_normalize:
+            return value / np.linalg.norm(value)
+        return value
 
 
 class Satellite:
     def __init__(self, t_max=200, ts=0.1):
         if hasattr(self, 'is_init') and self.is_init:
-            print("Already initialized, skipping initialization.")
+            self.logger.info("Already initialized, skipping initialization.")
             return
 
         self.is_init = False
@@ -47,6 +63,12 @@ class Satellite:
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
+
+        self.q_noise = Noise(mean=0, std=1e-3)
+        self.omega_noise = Noise(mean=0, std=1e-5)
+
     def step(self, torque):
         torque = torque.reshape(-1, 1)
         # clip
@@ -54,6 +76,9 @@ class Satellite:
         u = (self.C @ torque).reshape(-1, 1)
 
         self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j, u)
+
+        self.q = self.q_noise.add_gaussian_noise(self.q, need_normalize=True)
+        self.omega = self.omega_noise.add_gaussian_noise(self.omega, need_normalize=False)
 
         omega_d = get_omega_d(self.t)
         qe = get_q_e(self.qd, self.q)
@@ -157,10 +182,8 @@ class Satellite:
         self.qd = np.random.random((4, 1))
         self.qd = self.qd / np.linalg.norm(self.qd)
         self.q = np.random.random((4, 1))
-        # self.q = np.array([[0.71601343], [0.37206877], [0.31788925], [0.49783132]])
         self.q = self.q / np.linalg.norm(self.q)
         self.omega = (2 * np.random.random((3, 1)) - 1) * 0.1
-        # self.omega = np.array([[-0.1396], [-0.06177], [0.1859]])
         qe = get_q_e(self.qd, self.q)
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
@@ -171,9 +194,9 @@ class Satellite:
         self.qe_buffer = []
         self.omega_e_buffer = []
 
-        # print("quat init: ", self.q)
-        # print("omega init: ", self.omega)
-        # print("omega desired init: ", self.qd)
+        self.logger.info("quat init: %s", self.q)
+        self.logger.info("omega init: %s", self.omega)
+        self.logger.info("omega desired init: %s", self.qd)
 
         return self.state
     
@@ -313,7 +336,7 @@ class FaultSatellite(Satellite):
     def reset_fault_satellite(self):
         self.uf_buffer = []
         self.fault_mode = np.random.randint(0, 3)
-        # print("fault mode: ", self.fault_mode)
+        self.logger.info("fault mode: %s", self.fault_mode)
 
     def reset(self):
         self.reset_fault_satellite()
@@ -409,7 +432,6 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         torque = torque.reshape(-1, 1)
         FaultSatellite.step_fault_satellite(self, torque)
         u = torque + self.uf_buffer[-1].reshape(-1, 1)
-        # u = torque
         self.state, _, done, info = Satellite.step(self, u)
         SunPointSatellite.step_sun_point_satellite(self)
         reward = self.reward(self.u_buffer[-1], self.omega_e_buffer[-1], self.se)

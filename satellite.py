@@ -7,21 +7,7 @@ from gym import spaces
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 import logging
-
-
-class Noise:
-    def __init__(self, mean=0.0, std=0.0001, seed=None):
-        self.mean = mean
-        self.std = std
-        if seed is not None:
-            np.random.seed(seed)
-            
-    def add_gaussian_noise(self, value, need_normalize=False):
-        noise = np.random.normal(self.mean, self.std, size=value.shape)
-        value = value + noise
-        if need_normalize:
-            return value / np.linalg.norm(value)
-        return value
+from utils import Noise, GyroscopeNoise
 
 
 class Satellite:
@@ -63,11 +49,15 @@ class Satellite:
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
+        self.ARW = 0.08
+        self.RRW = 200
+        
+        self.q_noise = Noise(mean=0, std=1e-3)
+        self.gyro_noise = GyroscopeNoise(ARW=self.ARW, RRW=self.RRW, head_cnt=3)
+
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
-        self.q_noise = Noise(mean=0, std=1e-3)
-        self.omega_noise = Noise(mean=0, std=1e-5)
 
     def step(self, torque):
         torque = torque.reshape(-1, 1)
@@ -78,7 +68,7 @@ class Satellite:
         self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j, u)
 
         self.q = self.q_noise.add_gaussian_noise(self.q, need_normalize=True)
-        self.omega = self.omega_noise.add_gaussian_noise(self.omega, need_normalize=False)
+        self.omega = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
 
         omega_d = get_omega_d(self.t)
         qe = get_q_e(self.qd, self.q)

@@ -49,10 +49,10 @@ class Satellite:
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
-        self.ARW = 0.08
-        self.RRW = 200
-        
-        self.q_noise = Noise(mean=0, std=1e-3)
+        self.ARW = 0.04
+        self.RRW = 100
+
+        self.q_noise = Noise(mean=0, std=1e-5)
         self.gyro_noise = GyroscopeNoise(ARW=self.ARW, RRW=self.RRW, head_cnt=3)
 
         logging.basicConfig(level=logging.INFO)

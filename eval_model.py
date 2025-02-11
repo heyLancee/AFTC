@@ -8,6 +8,9 @@ import TD3
 from satellite import *
 from pyflywheel import FlyWheel
 from PyRealTime import RealTimeSimulation
+import sys
+from udp_client import UdpClient
+from base import TelemetryStruct, CommuDataType
 
 
 def eval_pid(pid, env_name, seed, path=None, is_plot=False):
@@ -62,7 +65,7 @@ def eval_pid(pid, env_name, seed, path=None, is_plot=False):
     return np.mean(rewards)
 
 
-def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_plot=False):
+def eval_policy(client, agent, dynamic_net, env_name, fault_mode, seed, path=None, is_plot=False):
     if env_name == "Satellite":
         eval_env = Satellite()
     elif env_name == "FaultSatellite":
@@ -104,6 +107,18 @@ def eval_policy(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_pl
         states.append(state)
         rewards.append(reward)
         actions.append(action)
+
+        telemetry_data = TelemetryStruct()
+        telemetry_data.timeStep = eval_env.t
+        telemetry_data.wx = eval_env.omega[0] * 180 / np.pi
+        telemetry_data.wy = eval_env.omega[1] * 180 / np.pi
+        telemetry_data.wz = eval_env.omega[2] * 180 / np.pi
+        telemetry_data.q0 = eval_env.q[0]
+        telemetry_data.q1 = eval_env.q[1]
+        telemetry_data.q2 = eval_env.q[2]
+        telemetry_data.q3 = eval_env.q[3]
+        telemetry_data.zAngle = eval_env.theta_buffer[-1]
+        client.send_data(telemetry_data)
 
     # 在循环结束后转换为NumPy数组
     states = np.array(states)
@@ -292,6 +307,24 @@ if __name__ == "__main__":
     policy_freq = 2
     policy_model_path = "u_max_005\TD3_SunPointFaultSatellite_1"
 
+    if len(sys.argv) != 3:
+        print("Usage: python3 udp_client.py <Host> <Port>")
+        sys.exit(1)
+
+    try:
+        host = sys.argv[1]
+        port = int(sys.argv[2])
+        print(f"host: {host}, port: {port}")
+    except ValueError as e:
+        print(f"Invalid argument: {e}")
+        sys.exit(1)
+
+    client = UdpClient(host, port)
+    if not client.connect_to_server():
+        print("Failed to connect to server")
+        sys.exit(1)
+    
+
     if env_name == "Satellite":
         env = Satellite()
     if env_name == "Satellite":
@@ -345,4 +378,6 @@ if __name__ == "__main__":
 
     # Evaluate untrained policy
     path = "results/eval_res.csv"
-    eval_policy(policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)
+    eval_policy(client, policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)
+
+    client.close()

@@ -8,31 +8,27 @@ from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 import logging
 from utils import Noise, GyroscopeNoise
+from config import EnvConfig
 
 
 class Satellite:
-    def __init__(self, t_max=200, ts=0.1):
+    def __init__(self, config: EnvConfig):
         if hasattr(self, 'is_init') and self.is_init:
             self.logger.info("Already initialized, skipping initialization.")
             return
 
         self.is_init = False
-        self.ts = ts
+        self.ts = config.simulation.ts
         self.t = 0
-        self.t_max = t_max
+        self.t_max = config.simulation.t_max
         self._max_episode_steps = int(self.t_max / self.ts)
 
-        self.j = np.array([
-            [12, 0, 0],
-            [0, 15, 0],
-            [0, 0, 18]
-        ])
+        self.j = config.satellite.inertia
         self.j_inv = np.linalg.inv(self.j)
-        self.C = np.array([
-            [1, 0, 0, 3 ** 0.5 / 3],
-            [0, 1, 0, 3 ** 0.5 / 3],
-            [0, 0, 1, 3 ** 0.5 / 3]
-        ])
+        self.C = config.satellite.actuator.installation_matrix
+
+        self.u_max = config.satellite.actuator.u_max
+
         self.omega_buffer = []
         self.q_buffer = []
         self.u_buffer = []  # 单机输出力矩
@@ -42,22 +38,18 @@ class Satellite:
         self.q = None
         self.omega = None
         self.qd = None
-        self.u_max = np.array([0.05, 0.05, 0.05, 0.05])
-
-        obs = np.array([1, 1, 1, 1, 5, 5, 5], dtype=np.float32)
-        action = np.array([1, 1, 1, 1], dtype=np.float32)
+       
+        obs = np.array(config.satellite_observation_space.upper_bound, dtype=np.float32)
+        action = np.array(config.satellite_action_space.upper_bound, dtype=np.float32)
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
-        self.ARW = 0.01
-        self.RRW = 50
-
-        self.q_noise = Noise(mean=0, std=1e-6)
-        self.gyro_noise = GyroscopeNoise(ARW=self.ARW, RRW=self.RRW, head_cnt=3)
+        self.q_noise = Noise(mean=config.sensor_noise.quaternion.noise_mean, std=config.sensor_noise.quaternion.noise_std)
+        self.gyro_noise = GyroscopeNoise(ARW=config.sensor_noise.gyroscope.ARW, RRW=config.sensor_noise.gyroscope.RRW, head_cnt=3)
+        self.s_noise = Noise(mean=config.sensor_noise.sun_sensor.noise_mean, std=config.sensor_noise.sun_sensor.noise_std)
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
-
 
     def step(self, torque):
         torque = torque.reshape(-1, 1)
@@ -192,13 +184,13 @@ class Satellite:
     
 
 class FaultSatellite(Satellite):
-    def __init__(self, fault_mode=0, t_max=200, ts=0.1):
-        super().__init__(t_max, ts)
+    def __init__(self, config: EnvConfig):
+        super().__init__(config)
 
         self.uf_buffer = []  # 单机故障力矩
         
         # 执行器故障相关
-        self.fault_mode = fault_mode
+        self.fault_mode = config.simulation.fault_mode
         self.e1 = 0
         self.e2 = 0
         self.e3 = 0
@@ -325,7 +317,7 @@ class FaultSatellite(Satellite):
 
     def reset_fault_satellite(self):
         self.uf_buffer = []
-        self.fault_mode = np.random.randint(0, 3)
+        # self.fault_mode = np.random.randint(0, 3)
         self.logger.info("fault mode: %s", self.fault_mode)
 
     def reset(self):
@@ -334,18 +326,18 @@ class FaultSatellite(Satellite):
 
 
 class SunPointSatellite(Satellite):
-    def __init__(self, sd=np.array([[0], [0], [1]]), si=None, t_max=200, ts=0.1):
-        super().__init__(t_max, ts)
+    def __init__(self, config: EnvConfig):
+        super().__init__(config)
 
-        obs = np.array([5, 5, 5, 1, 1], dtype=np.float32)
-        action = np.array([1, 1, 1, 1], dtype=np.float32)
+        obs = np.array(config.sun_pointing_observation_space.upper_bound, dtype=np.float32)
+        action = np.array(config.sun_pointing_action_space.upper_bound, dtype=np.float32)
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
-        self.sd = sd
+        self.sd = config.sun_pointing.desired_vector
         self.sd = self.sd / np.linalg.norm(self.sd)
-        self.si = si
-        if si is None:
+        self.si = config.sun_pointing.initial_vector
+        if self.si is None:
             self.si = np.random.random((3, 1))
         self.si = self.si / np.linalg.norm(self.si)
         self.sb = None
@@ -357,7 +349,8 @@ class SunPointSatellite(Satellite):
         q_correct = np.array([self.q[1], self.q[2], self.q[3], self.q[0]])
         R = Rotation.from_quat(q_correct.flatten()).as_matrix().T
         self.sb = R @ self.si
-        self.sb = self.sb / np.linalg.norm(self.sb)
+        # sb也加个噪声
+        self.sb = self.s_noise.add_gaussian_noise(self.sb, need_normalize=True)
         self.se = np.cross(self.sb.flatten(), self.sd.flatten())
         theta = np.arccos(np.dot(self.sb.flatten(), self.sd.flatten()))
         self.theta_buffer.append(theta*180/np.pi)
@@ -409,12 +402,12 @@ class SunPointSatellite(Satellite):
         
 
 class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
-    def __init__(self, fault_mode=0, sd=np.array([[0], [0], [1]]), si=None, t_max=200, ts=0.1):
-        FaultSatellite.__init__(self, fault_mode=fault_mode, t_max=t_max, ts=ts)
-        SunPointSatellite.__init__(self, sd=sd, si=si, t_max=t_max, ts=ts)
+    def __init__(self, config: EnvConfig):
+        super().__init__(config)
+        SunPointSatellite.__init__(self, config)
 
-        obs = np.array([5, 5, 5, 1, 1], dtype=np.float32)
-        action = np.array([1, 1, 1, 1], dtype=np.float32)
+        obs = np.array(config.sun_pointing_observation_space.upper_bound, dtype=np.float32)
+        action = np.array(config.sun_pointing_action_space.upper_bound, dtype=np.float32)
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 

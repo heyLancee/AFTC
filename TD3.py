@@ -20,7 +20,6 @@ class Actor(nn.Module):
 		
 		self.max_action = max_action
 		
-
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))

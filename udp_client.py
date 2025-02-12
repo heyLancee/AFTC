@@ -38,7 +38,6 @@ class UdpClient:
 
         # 发送数据，使用sendto而不是send
         self.sock.sendto(packet, (self.host, self.port))
-        print(f"Sent telemetry data at time: {elapsed_time}")
 
     def close(self):
         self.sock.close()

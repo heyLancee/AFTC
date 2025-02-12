@@ -11,7 +11,7 @@ from PyRealTime import RealTimeSimulation
 import sys
 from udp_client import UdpClient
 from base import TelemetryStruct, CommuDataType
-
+from config import EnvConfig
 
 def eval_pid(pid, env_name, seed, path=None, is_plot=False):
     if env_name == "Satellite":
@@ -65,15 +65,17 @@ def eval_pid(pid, env_name, seed, path=None, is_plot=False):
     return np.mean(rewards)
 
 
-def eval_policy(client, agent, dynamic_net, env_name, fault_mode, seed, path=None, is_plot=False):
+def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=False):
+    config = EnvConfig()
+
     if env_name == "Satellite":
-        eval_env = Satellite()
+        eval_env = Satellite(config)
     elif env_name == "FaultSatellite":
-        eval_env = FaultSatellite()
+        eval_env = FaultSatellite(config)
     elif env_name == "SunPointSatellite":
-        eval_env = SunPointSatellite()
+        eval_env = SunPointSatellite(config)
     elif env_name == "SunPointFaultSatellite":
-        eval_env = SunPointFaultSatellite()
+        eval_env = SunPointFaultSatellite(config)
     else:
         eval_env = gym.make(env_name)
     eval_env.seed(seed)
@@ -82,8 +84,6 @@ def eval_policy(client, agent, dynamic_net, env_name, fault_mode, seed, path=Non
     states = []
     actions = []
     state, done = eval_env.reset(), False
-    if fault_mode != -1:
-        eval_env.fault_mode = fault_mode
     state = np.concatenate((state, np.zeros(DynamicNet.OUTPUT_NUM)))
 
     while not done:
@@ -297,7 +297,6 @@ if __name__ == "__main__":
     # seed = np.random.randint(1, 100)
     seed = 3
     env_name = "SunPointFaultSatellite"
-    fault_mode = 0
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = [64, 128]
     discount = 0.99
@@ -319,22 +318,21 @@ if __name__ == "__main__":
         print(f"Invalid argument: {e}")
         sys.exit(1)
 
+    config = EnvConfig()
+
     client = UdpClient(host, port)
     if not client.connect_to_server():
         print("Failed to connect to server")
         sys.exit(1)
-    
 
     if env_name == "Satellite":
-        env = Satellite()
-    if env_name == "Satellite":
-        env = Satellite()
+        env = Satellite(config)
     elif env_name == "FaultSatellite":
-        env = FaultSatellite()
+        env = FaultSatellite(config)
     elif env_name == "SunPointSatellite":
-        env = SunPointSatellite()
+        env = SunPointSatellite(config)
     elif env_name == "SunPointFaultSatellite":
-        env = SunPointFaultSatellite()
+        env = SunPointFaultSatellite(config)
     else:
         env = gym.make(env_name)
 
@@ -378,6 +376,6 @@ if __name__ == "__main__":
 
     # Evaluate untrained policy
     path = "results/eval_res.csv"
-    eval_policy(client, policy, dynamicNet, env_name, fault_mode, seed, path, is_plot=True)
+    eval_policy(client, policy, dynamicNet, env_name, seed, path, is_plot=True)
 
     client.close()

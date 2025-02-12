@@ -4,8 +4,8 @@ import gym
 import argparse
 import os
 import utils
-import TD3
-from DynamicNet import AttitudeDynamicsNN
+import td3
+from dyn_net import AttitudeDynamicsNN
 from eval_model import eval_policy
 from satellite import *
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
 	
 	state_dim = env.observation_space.shape[0]
 	# state_dim append with the vars related to dyanmic net
-	state_dim += TD3.STATE_APPEND_NUM
+	state_dim += td3.STATE_APPEND_NUM
 	action_dim = env.action_space.shape[0] 
 	max_action = float(env.action_space.high[0])
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 		kwargs["policy_noise"] = args.policy_noise * max_action
 		kwargs["noise_clip"] = args.noise_clip * max_action
 		kwargs["policy_freq"] = args.policy_freq
-		policy = TD3.TD3(**kwargs)
+		policy = td3.TD3(**kwargs)
 	else:
 		raise NotImplementedError
 
@@ -118,7 +118,7 @@ if __name__ == "__main__":
 	state, done = env.reset(), False
 	if args.fault_mode != -1:
 		env.fault_mode = args.fault_mode
-	state = np.concatenate((state, np.zeros(TD3.STATE_APPEND_NUM)))
+	state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 
 	# Evaluate untrained policy
 	evaluations = [eval_policy(policy, dynamic_net, args.env, env.fault_mode, args.seed, path=None)]
@@ -172,7 +172,7 @@ if __name__ == "__main__":
 			print(f"Dir: {args.dir}, Total T: {t+1}, Episode Num: {episode_num+1}/{episode_total_num}, Episode T: {episode_timesteps}, Reward: {episode_reward:.3f}")
 			# Reset environment
 			state, done = env.reset(), False
-			state = np.concatenate((state, np.zeros(TD3.STATE_APPEND_NUM)))
+			state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 			episode_reward = 0
 			episode_timesteps = 0
 			episode_num += 1

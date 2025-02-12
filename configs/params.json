@@ -54,5 +54,17 @@
     "sun_pointing_action_space": {
         "upper_bound": [1, 1, 1, 1],
         "lower_bound": [-1, -1, -1, -1]
+    },
+    "flywheel": {
+        "COM": "COM5",
+        "BAUD": 115200,
+        "polling_frequency": 100,
+        "communication_frequency": 1000
+    },
+    "udp": {
+        "host": "127.0.0.1",
+        "port": 1200,
+        "header": "SSSSSSSS",
+        "tail": "EEEEEEEE"
     }
 }

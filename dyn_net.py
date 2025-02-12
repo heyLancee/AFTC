@@ -6,11 +6,11 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import argparse
 from satellite import *
-import TD3
+import td3
 from typing import List
 
 INPUT_NUM = 6
-OUTPUT_NUM = TD3.STATE_APPEND_NUM
+OUTPUT_NUM = td3.STATE_APPEND_NUM
 
 torch.set_printoptions(precision=8)
 
@@ -100,16 +100,6 @@ class AttitudeDynamicsNN(nn.Module):
 
     def load_model(self, path):
         self.load_state_dict(torch.load(path, map_location=self.device))
-
-
-def sub_plot_func(fig, index, data, label, xlabel, ylabel):
-    ax = fig.add_subplot(index)
-
-    for i in range(len(data)):
-        ax.plot(data[i], label=label[i])
-        ax.legend()
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
 
 
 def eval_net_in_env(env_name, fault_mode, dynamic_net_path, hidden_size, seed):
@@ -291,34 +281,5 @@ if __name__ == '__main__':
                           learning_rate=lr, model_path=model_save_path, data_path=data_save_path)
         # 保存模型
         model.save_model(model_save_path)
-
-    # 验证
-    # x_test = torch.tensor(x_test, dtype=torch.float32)
-    # q_pred, omega_pred = model.predict(x_test)
-    #
-    # # 绘制
-    # q = y_test[:, :4]
-    # omega = y_test[:, 4:]
-    #
-    # # 转numpy
-    # q_pred = q_pred.cpu().numpy()
-    # omega_pred = omega_pred.cpu().numpy()
-    #
-    # # 4 * 1 的 subplots 绘制 qe
-    # qe = q - q_pred
-    # fig = plt.figure()
-    # sub_plot_func(fig, 411, [qe[:, 0]], ['qe0'], 'Time', 'qe0')
-    # sub_plot_func(fig, 412, [qe[:, 1]], ['qe1'], 'Time', 'qe1')
-    # sub_plot_func(fig, 413, [qe[:, 2]], ['qe2'], 'Time', 'qe2')
-    # sub_plot_func(fig, 414, [qe[:, 3]], ['qe3'], 'Time', 'qe3')
-    # plt.show()
-    #
-    # # 3 * 1 绘制 omega_e
-    # omega = omega - omega_pred
-    # fig = plt.figure()
-    # sub_plot_func(fig, 311, [omega[:, 0]], ['omegae0'], 'Time', 'omegae0')
-    # sub_plot_func(fig, 312, [omega[:, 1]], ['omegae1'], 'Time', 'omegae1')
-    # sub_plot_func(fig, 313, [omega[:, 2]], ['omegae2'], 'Time', 'omegae2')
-    # plt.show()
 
     eval_net_in_env(env_name, fault_mode, model_load_path, hidden_size, seed)

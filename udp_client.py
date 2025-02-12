@@ -5,11 +5,13 @@ import sys
 from base import TelemetryStruct, CommuDataType
 
 class UdpClient:
-    def __init__(self, host, port, T=10, Ts=0.1):
+    def __init__(self, host, port, T=10, Ts=0.1, header="SSSSSSSS", tail="EEEEEEEE"):
         self.host = host
         self.port = port
         self.T = T
         self.Ts = Ts
+        self.header = header
+        self.tail = tail
 
     def connect_to_server(self):
         try:
@@ -21,11 +23,9 @@ class UdpClient:
             return False
 
     def send_data(self, telemetry_data: TelemetryStruct):
-        elapsed_time = 0
-
         # 示例帧头和帧尾
-        frame_head = "SSSSSSSS".encode('utf-8')
-        frame_tail = "EEEEEEEE".encode('utf-8')
+        frame_head = self.header.encode('utf-8')
+        frame_tail = self.tail.encode('utf-8')
 
         # 将数据转换为字节数组
         byte_array = telemetry_data.to_byte_array()

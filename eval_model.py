@@ -2,67 +2,16 @@ import gym
 import pandas as pd
 import torch
 import time
-from DynamicNet import AttitudeDynamicsNN
-import DynamicNet
-import TD3
+from dyn_net import AttitudeDynamicsNN
+import dyn_net
+import td3
 from satellite import *
 from pyflywheel import FlyWheel
 from PyRealTime import RealTimeSimulation
 import sys
 from udp_client import UdpClient
-from base import TelemetryStruct, CommuDataType
+from base import TelemetryStruct
 from config import EnvConfig
-
-def eval_pid(pid, env_name, seed, path=None, is_plot=False):
-    if env_name == "Satellite":
-        eval_env = Satellite()
-    elif env_name == "FaultSatellite":
-        eval_env = FaultSatellite()
-    elif env_name == "SunPointSatellite":
-        eval_env = SunPointSatellite()
-    elif env_name == "SunPointFaultSatellite":
-        eval_env = SunPointFaultSatellite()
-    else:
-        eval_env = gym.make(env_name)
-    eval_env.seed(seed + np.random.randint(1, 100))
-
-    rewards = []
-    states = []
-    actions = []
-    state, done = eval_env.reset(), False
-
-    eval_env.fault_mode = 0
-
-    while not done:
-        pid_action = pid.select_action(eval_env.sb, eval_env.sd, eval_env.omega)
-
-        action = np.linalg.pinv(eval_env.C)@pid_action
-        state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
-
-        states.append(state)
-        rewards.append(reward)
-        actions.append(action)
-
-    # 在循环结束后转换为NumPy数组
-    states = np.array(states)
-    rewards = np.array(rewards)
-    actions = np.array(actions)
-
-    print("---------------------------------------")
-    print(f"reward: {np.mean(rewards)}")
-    print("---------------------------------------")
-
-    if path is not None:
-        df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
-        df_uc = pd.DataFrame(actions, columns=[f'u_{i}' for i in range(len(actions[0]))])
-        df = pd.concat([df, df_uc], axis=1)
-        df['reward'] = rewards
-        df.to_csv(path, index=False)
-
-    if is_plot:
-        eval_env.plot()
-
-    return np.mean(rewards)
 
 
 def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=False):
@@ -84,7 +33,7 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
     states = []
     actions = []
     state, done = eval_env.reset(), False
-    state = np.concatenate((state, np.zeros(DynamicNet.OUTPUT_NUM)))
+    state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
 
     while not done:
         if agent is not None:
@@ -108,6 +57,7 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
         rewards.append(reward)
         actions.append(action)
 
+        # send telemetry data
         telemetry_data = TelemetryStruct()
         telemetry_data.timeStep = eval_env.t
         telemetry_data.wx = eval_env.omega[0] * 180 / np.pi
@@ -120,14 +70,9 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
         telemetry_data.zAngle = eval_env.theta_buffer[-1]
         client.send_data(telemetry_data)
 
-    # 在循环结束后转换为NumPy数组
     states = np.array(states)
     rewards = np.array(rewards)
     actions = np.array(actions)
-
-    # print("---------------------------------------")
-    # print(f"reward: {np.mean(rewards)}")
-    # print("---------------------------------------")
 
     if path is not None:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
@@ -139,18 +84,18 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
     if is_plot:
         eval_env.plot()
 
-    return np.sum(rewards)
-
 
 def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_plot=False):
+    config = EnvConfig()
+
     if env_name == "Satellite":
-        eval_env = Satellite()
+        eval_env = Satellite(config)
     elif env_name == "FaultSatellite":
-        eval_env = FaultSatellite()
+        eval_env = FaultSatellite(config)
     elif env_name == "SunPointSatellite":
-        eval_env = SunPointSatellite()
+        eval_env = SunPointSatellite(config)
     elif env_name == "SunPointFaultSatellite":
-        eval_env = SunPointFaultSatellite()
+        eval_env = SunPointFaultSatellite(config)
     else:
         eval_env = gym.make(env_name)
     eval_env.seed(seed)
@@ -161,7 +106,7 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
     state, done = eval_env.reset(), False
     if fault_mode != -1:
         eval_env.fault_mode = fault_mode
-    state = np.concatenate((state, np.zeros(DynamicNet.OUTPUT_NUM)))
+    state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
     torque_0 = 0
 
     def fly_callback(telemetry, last_telemetry):
@@ -184,12 +129,13 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
         print(f"torque_0: {torque_0}")
         print("--------------------------------")
 
-    COM = 'COM5'
-    BAUD = 115200
-    flywheel = FlyWheel(port=COM, baudrate=BAUD, auto_polling=True, polling_frequency=100, communication_frequency=1000, 
+    # flywheel
+    COM = config.flywheel.COM
+    BAUD = config.flywheel.BAUD
+    flywheel = FlyWheel(port=COM, baudrate=BAUD, auto_polling=True, polling_frequency=config.flywheel.polling_frequency, communication_frequency=config.flywheel.communication_frequency, 
                         callback=fly_callback, queue_size=10)
     flywheel.connect()
-    real_time_sim = RealTimeSimulation(env.ts)
+    real_time_sim = RealTimeSimulation(eval_env.ts)
 
     time.sleep(1)
     flywheel.start()
@@ -239,10 +185,6 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
     rewards = np.array(rewards)
     actions = np.array(actions)
 
-    # print("---------------------------------------")
-    # print(f"reward: {np.mean(rewards)}")
-    # print("---------------------------------------")
-
     if path is not None:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
         df_uc = pd.DataFrame(actions, columns=[f'u_{i}' for i in range(len(actions[0]))])
@@ -252,44 +194,6 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
 
     if is_plot:
         eval_env.plot()
-
-    return np.sum(rewards)
-
-
-def plot_result(data: pd.DataFrame):
-    # 提取四元数和角速度
-    quaternions = data[['state_0', 'state_1', 'state_2', 'state_3']]
-    angular_velocities = data[['state_4', 'state_5', 'state_6']]
-
-    u_c = data[['u_0', 'u_1', 'u_2', 'u_3']]
-
-    # 绘制图形
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 8))
-
-    # 绘制四元数
-    quaternions.plot(ax=ax1)
-    ax1.set_title('Quaternions')
-    ax1.set_xlabel('Time Step')
-    ax1.set_ylabel('Value')
-    ax1.legend(['q0', 'q1', 'q2', 'q3'])
-
-    # 绘制角速度
-    angular_velocities.plot(ax=ax2)
-    ax2.set_title('Angular Velocities')
-    ax2.set_xlabel('Time Step')
-    ax2.set_ylabel('Value (rad/s)')
-    ax2.legend(['wx', 'wy', 'wz'])
-
-    # 绘制角速度
-    u_c.plot(ax=ax3)
-    ax3.set_title('Torque')
-    ax3.set_xlabel('Time Step')
-    ax3.set_ylabel('Value (Nm)')
-    ax3.legend(['u1', 'u2', 'u3', 'u4'])
-
-    # 显示图形
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -306,21 +210,9 @@ if __name__ == "__main__":
     policy_freq = 2
     policy_model_path = "u_max_005\TD3_SunPointFaultSatellite_1"
 
-    if len(sys.argv) != 3:
-        print("Usage: python3 udp_client.py <Host> <Port>")
-        sys.exit(1)
-
-    try:
-        host = sys.argv[1]
-        port = int(sys.argv[2])
-        print(f"host: {host}, port: {port}")
-    except ValueError as e:
-        print(f"Invalid argument: {e}")
-        sys.exit(1)
-
     config = EnvConfig()
 
-    client = UdpClient(host, port)
+    client = UdpClient(config.udp.host, config.udp.port, header=config.udp.header, tail=config.udp.tail)
     if not client.connect_to_server():
         print("Failed to connect to server")
         sys.exit(1)
@@ -343,7 +235,7 @@ if __name__ == "__main__":
     np.random.seed(seed)
 
     state_dim = env.observation_space.shape[0]
-    state_dim += TD3.STATE_APPEND_NUM
+    state_dim += td3.STATE_APPEND_NUM
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
 
@@ -362,14 +254,14 @@ if __name__ == "__main__":
         kwargs["policy_noise"] = policy_noise * max_action
         kwargs["noise_clip"] = noise_clip * max_action
         kwargs["policy_freq"] = policy_freq
-        policy = TD3.TD3(**kwargs)
+        policy = td3.TD3(**kwargs)
     else:
         raise NotImplementedError
 
     if policy_model_path != "":
         policy.load(f"./models/{policy_model_path}")
 
-    dynamicNet = DynamicNet.AttitudeDynamicsNN(hidden_size)
+    dynamicNet = dyn_net.AttitudeDynamicsNN(hidden_size)
     if dynamic_net_path != "":
         print(f"Load dynamic net from {dynamic_net_path}")
         dynamicNet.load_model(dynamic_net_path)

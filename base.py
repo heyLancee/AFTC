@@ -1,5 +1,4 @@
 import struct
-import json
 from enum import Enum
 
 # 定义枚举类型
@@ -72,24 +71,6 @@ class TelemetryStruct:
                            self.tx, self.ty, self.tz,
                            self.zAngle)
 
-class FaultResultStruct:
-    def __init__(self):
-        self.timeStep = 0.0
-        self.faultValue = 0.0
-        self.faultType = 0
-
-    @staticmethod
-    def from_byte_array(data):
-        if len(data) < 12:
-            return None
-        values = struct.unpack('<3f', data[:12])
-        obj = FaultResultStruct()
-        obj.timeStep, obj.faultValue, obj.faultType = values
-        return obj
-
-    def to_byte_array(self):
-        return struct.pack('<3f', self.timeStep, self.faultValue, self.faultType)
-
 class FaultParaStruct:
     def __init__(self):
         self.faultTimeLow = 0.0
@@ -107,20 +88,6 @@ class FaultParaStruct:
                            self.faultTimeUp, self.faultAttUp,
                            self.faultType,
                            self.gyroGroup, self.gyroID, self.runMode)
-
-class SaveDataStruct:
-    def __init__(self):
-        self.gyroIsChecked = False
-        self.starIsChecked = False
-        self.sunIsChecked = False
-        self.rwIsChecked = False
-        self.path = ""
-
-    def to_byte_array(self):
-        return struct.pack('<4?', 
-                           self.gyroIsChecked, self.starIsChecked,
-                           self.sunIsChecked, self.rwIsChecked) + \
-               self.path.encode('utf-8')
 
 # 包管理类
 class PackageManager:

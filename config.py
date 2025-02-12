@@ -2,7 +2,7 @@ import json
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional
 
 @dataclass
 class SimulationConfig:
@@ -51,6 +51,19 @@ class ActionSpaceConfig:
     upper_bound: np.ndarray
     lower_bound: np.ndarray
 
+@dataclass
+class FlywheelConfig:
+    COM: str
+    BAUD: int
+    polling_frequency: int
+    communication_frequency: int
+
+@dataclass
+class UdpConfig:
+    host: str
+    port: int
+    header: str
+    tail: str
 
 class EnvConfig:
     _instance = None
@@ -71,7 +84,7 @@ class EnvConfig:
     def _load_config(self):
         """加载并解析配置文件"""
         try:
-            config_path = Path(__file__).parent / 'configs' / 'env_para.json'
+            config_path = Path(__file__).parent / 'configs' / 'params.json'
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
 
@@ -142,6 +155,22 @@ class EnvConfig:
                 lower_bound=np.array(config['sun_pointing_action_space']['lower_bound'])
             )
 
+            # 解析飞轮参数
+            self.flywheel = FlywheelConfig(
+                COM=config['flywheel']['COM'],
+                BAUD=config['flywheel']['BAUD'],
+                polling_frequency=config['flywheel']['polling_frequency'],
+                communication_frequency=config['flywheel']['communication_frequency']
+            )
+
+            # 解析UDP参数
+            self.udp = UdpConfig(
+                host=config['udp']['host'],
+                port=config['udp']['port'],
+                header=config['udp']['header'],
+                tail=config['udp']['tail']
+            )
+            
         except Exception as e:
             print(f"Error loading config file: {e}")
             raise
@@ -165,3 +194,12 @@ if __name__ == "__main__":
     print(f"Action space: {config.satellite_action_space.upper_bound}")
     print(f"Sun pointing observation space: {config.sun_pointing_observation_space.upper_bound}")
     print(f"Sun pointing action space: {config.sun_pointing_action_space.upper_bound}")
+    print(f"Flywheel COM: {config.flywheel.COM}")
+    print(f"Flywheel BAUD: {config.flywheel.BAUD}")
+    print(f"Flywheel polling frequency: {config.flywheel.polling_frequency}")
+    print(f"Flywheel communication frequency: {config.flywheel.communication_frequency}")
+    print(f"UDP host: {config.udp.host}")
+    print(f"UDP port: {config.udp.port}")
+    print(f"UDP header: {config.udp.header}")
+    print(f"UDP tail: {config.udp.tail}")
+

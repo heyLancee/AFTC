@@ -5,10 +5,8 @@ from enum import Enum
 class CommuDataType(Enum):
     TELEMETRY = 0
     FAULT_RESULT = 1
-    RUN_PLATFORM = 2
-    STOP_PLATFORM = 3
-    FAULT_PARA = 4
-    SAVE_DATA = 5
+    FAULT_PARA = 2
+    SAVE_DATA = 3
 
 # 数据结构定义
 class TelemetryStruct:
@@ -88,6 +86,24 @@ class FaultParaStruct:
                            self.faultTimeUp, self.faultAttUp,
                            self.faultType,
                            self.gyroGroup, self.gyroID, self.runMode)
+
+    @staticmethod
+    def from_byte_array(data):
+        """从字节数组中解析数据"""
+        if len(data) < 32:  # 8个float，每个4字节
+            return None
+        
+        values = struct.unpack('<8f', data[:32])
+        obj = FaultParaStruct()
+        obj.faultTimeLow = values[0]
+        obj.faultAttLow = values[1]
+        obj.faultTimeUp = values[2]
+        obj.faultAttUp = values[3]
+        obj.faultType = values[4]
+        obj.gyroGroup = values[5]
+        obj.gyroID = values[6]
+        obj.runMode = values[7]
+        return obj
 
 # 包管理类
 class PackageManager:

@@ -64,6 +64,7 @@
     "udp": {
         "host": "127.0.0.1",
         "port": 1200,
+        "local_port": 1201,
         "header": "SSSSSSSS",
         "tail": "EEEEEEEE"
     }

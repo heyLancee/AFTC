@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     config = EnvConfig()
 
-    client = UdpClient(config.udp.host, config.udp.port, header=config.udp.header, tail=config.udp.tail)
+    client = UdpClient(config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
     if not client.connect_to_server():
         print("Failed to connect to server")
         sys.exit(1)

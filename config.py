@@ -62,6 +62,7 @@ class FlywheelConfig:
 class UdpConfig:
     host: str
     port: int
+    local_port: int
     header: str
     tail: str
 
@@ -167,6 +168,7 @@ class EnvConfig:
             self.udp = UdpConfig(
                 host=config['udp']['host'],
                 port=config['udp']['port'],
+                local_port=config['udp']['local_port'],
                 header=config['udp']['header'],
                 tail=config['udp']['tail']
             )
@@ -200,6 +202,7 @@ if __name__ == "__main__":
     print(f"Flywheel communication frequency: {config.flywheel.communication_frequency}")
     print(f"UDP host: {config.udp.host}")
     print(f"UDP port: {config.udp.port}")
+    print(f"UDP local port: {config.udp.local_port}")
     print(f"UDP header: {config.udp.header}")
     print(f"UDP tail: {config.udp.tail}")
 

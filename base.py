@@ -36,14 +36,17 @@ class TelemetryStruct:
         self.ty : float = 0.0
         self.tz : float = 0.0
         self.zAngle : float = 0.0
+        self.torqueX : float = 0.0
+        self.torqueY : float = 0.0
+        self.torqueZ : float = 0.0
 
     # 从字节数据中恢复数据
     @staticmethod
     def from_byte_array(data):
-        if len(data) < 96:
+        if len(data) < 224:
             return None
         
-        values = struct.unpack('<24f', data[:96])  # 24个float类型数据
+        values = struct.unpack('<28d', data[:224])  # 28个double类型数据
         obj = TelemetryStruct()
         obj.timeStep = values[0]
         obj.wx, obj.wy, obj.wz = values[1:4]
@@ -54,11 +57,12 @@ class TelemetryStruct:
         obj.qbo0, obj.qbo1, obj.qbo2, obj.qbo3 = values[17:21]
         obj.tx, obj.ty, obj.tz = values[21:24]
         obj.zAngle = values[23]
+        obj.torqueX, obj.torqueY, obj.torqueZ = values[24:27]
         return obj
 
     # 转换为字节数组
     def to_byte_array(self):
-        return struct.pack('<25d', 
+        return struct.pack('<28d', 
                            self.timeStep,
                            self.wx, self.wy, self.wz,
                            self.q0, self.q1, self.q2, self.q3,
@@ -67,7 +71,8 @@ class TelemetryStruct:
                            self.wboX, self.wboY, self.wboZ,
                            self.qbo0, self.qbo1, self.qbo2, self.qbo3,
                            self.tx, self.ty, self.tz,
-                           self.zAngle)
+                           self.zAngle,
+                           self.torqueX, self.torqueY, self.torqueZ)
 
 class FaultParaStruct:
     def __init__(self):

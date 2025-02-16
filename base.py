@@ -3,10 +3,9 @@ from enum import Enum
 
 # 定义枚举类型
 class CommuDataType(Enum):
-    TELEMETRY = 0
-    FAULT_RESULT = 1
-    FAULT_PARA = 2
-    SAVE_DATA = 3
+    TELEMETRY = 1
+    FAULT_RESULT = 2
+    FAULT_PARA = 3
 
 # 数据结构定义
 class TelemetryStruct:

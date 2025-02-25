@@ -103,6 +103,8 @@ class AttitudeDynamicsNN(nn.Module):
 
 
 def eval_net_in_env(env_name, fault_mode, dynamic_net_path, hidden_size, seed):
+    env_config = EnvConfig()
+
     # 加载模型
     dynamic_net = AttitudeDynamicsNN(hidden_size=hidden_size)
     if dynamic_net_path != "":
@@ -110,13 +112,13 @@ def eval_net_in_env(env_name, fault_mode, dynamic_net_path, hidden_size, seed):
 
     # swtch case
     if env_name == "Satellite":
-        env = Satellite()
+        env = Satellite(env_config)
     elif env_name == "FaultSatellite":
-        env = FaultSatellite()
+        env = FaultSatellite(env_config)
     elif env_name == "SunPointSatellite":
-        env = SunPointSatellite()
+        env = SunPointSatellite(env_config)
     elif env_name == "SunPointFaultSatellite":
-        env = SunPointFaultSatellite()
+        env = SunPointFaultSatellite(env_config)
     else:
         raise ValueError("Invalid env name")
 
@@ -207,6 +209,12 @@ def eval_net_in_env(env_name, fault_mode, dynamic_net_path, hidden_size, seed):
     ax[2].set_ylabel('e2')
 
     plt.show()
+
+    # save preds and actuals to one csv file
+    pd.DataFrame(np.concatenate((preds, actuals), axis=1), columns=['pred0', 'pred1', 'pred2', 'actual0', 'actual1', 'actual2']).to_csv(f"./results/dyn_net/eval_preds_actuals_{env_name}_{fault_mode}.csv", index=False)
+
+    # save error to one csv file
+    pd.DataFrame(error, columns=['e0', 'e1', 'e2']).to_csv(f"./results/dyn_net/eval_error_{env_name}_{fault_mode}.csv", index=False)
 
 
 if __name__ == '__main__':

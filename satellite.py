@@ -31,7 +31,8 @@ class Satellite:
 
         self.omega_buffer = []
         self.q_buffer = []
-        self.u_buffer = []  # 单机输出力矩
+        self.torque_buffer = []
+        self.u_buffer = []
         self.qe_buffer = []
         self.omega_e_buffer = []
         self.state = None
@@ -70,10 +71,11 @@ class Satellite:
 
         self.omega_buffer.append(self.omega.flatten())
         self.q_buffer.append(self.q.flatten())
-        self.u_buffer.append(torque.flatten())
+        self.torque_buffer.append(torque.flatten())
+        self.u_buffer.append(u.flatten())
         self.qe_buffer.append(qe.flatten())
         self.omega_e_buffer.append(omega_e.flatten())
-        reward = self.reward(u, qev, omega_e)
+        reward = self.reward(self.torque_buffer[-1], qev, omega_e)
 
         self.t += self.ts
         done = False
@@ -97,6 +99,7 @@ class Satellite:
     def plot(self):
         qe_buffer = np.array(self.qe_buffer)
         omega_e_buffer = np.array(self.omega_e_buffer) * 180 / np.pi
+        torque_buffer = np.array(self.torque_buffer)
         u_buffer = np.array(self.u_buffer)
         q_buffer = np.array(self.q_buffer)
         omega_buffer = np.array(self.omega_buffer) * 180 / np.pi
@@ -124,13 +127,23 @@ class Satellite:
         ax.set_xlabel('Time')
         ax.set_ylabel('Omega_e')
 
+        # torque_buffer
+        fig = plt.figure(figsize=(12, 8))
+        ax = fig.add_subplot(111)
+        ax.plot(times, torque_buffer[:, 0], label='u0')
+        ax.plot(times, torque_buffer[:, 1], label='u1')
+        ax.plot(times, torque_buffer[:, 2], label='u2')
+        ax.plot(times, torque_buffer[:, 3], label='u3')
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Torque')
+
         # u_buffer
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
         ax.plot(times, u_buffer[:, 0], label='u0')
         ax.plot(times, u_buffer[:, 1], label='u1')
         ax.plot(times, u_buffer[:, 2], label='u2')
-        ax.plot(times, u_buffer[:, 3], label='u3')
         ax.legend()
         ax.set_xlabel('Time')
         ax.set_ylabel('Torque')
@@ -172,6 +185,7 @@ class Satellite:
         self.t = 0
         self.q_buffer = []
         self.omega_buffer = []
+        self.torque_buffer = []
         self.u_buffer = []
         self.qe_buffer = []
         self.omega_e_buffer = []
@@ -364,7 +378,7 @@ class SunPointSatellite(Satellite):
         torque = torque.reshape(-1, 1)
         state, _, done, info = Satellite.step(self, torque)
         self.step_sun_point_satellite()
-        reward = self.reward(self.u_buffer[-1], self.omega_e_buffer[-1], self.se)
+        reward = self.reward(self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
         return state, reward, done, info
 
     def reward(self, f, omega_e, se):
@@ -417,7 +431,7 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         u = torque + self.uf_buffer[-1].reshape(-1, 1)
         self.state, _, done, info = Satellite.step(self, u)
         SunPointSatellite.step_sun_point_satellite(self)
-        reward = self.reward(self.u_buffer[-1], self.omega_e_buffer[-1], self.se)
+        reward = self.reward(self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
         return self.state, reward, done, info
 
     def reward(self, f, omega_e, se):

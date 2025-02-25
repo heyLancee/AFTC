@@ -2,6 +2,7 @@ import socket
 import struct
 import time
 import sys
+from typing import Tuple
 from base import TelemetryStruct, CommuDataType, FaultParaStruct
 
 
@@ -22,7 +23,7 @@ class PackageManager:
     def package(self, data: str, identifier: int) -> str:
         return f"{self.header}{chr(identifier)}{data}{self.tail}"
     
-    def unpackage(self, package: str) -> tuple[str, int]:
+    def unpackage(self, package: str) -> Tuple[str, int]:
         data_type = None
         if not self.validate_package(package, data_type):
             return "", None
@@ -77,7 +78,8 @@ class UdpClient:
 
     def send_data(self, telemetry_data: TelemetryStruct):
         packet = self.package_manager.package(telemetry_data, CommuDataType.TELEMETRY.value)
-        self.sock.sendto(packet, (self.host, self.port))
+        packet_bytes = packet.encode('utf-8')
+        self.sock.sendto(packet_bytes, (self.host, self.port))
 
     def start_receiving(self):
         """启动数据接收线程"""
@@ -99,13 +101,14 @@ class UdpClient:
             print("Socket not initialized")
             return
 
-        self.sock.settimeout(1.0)  # 设置超时时间为1秒
+        self.sock.settimeout(1.0)
         buffer_size = 1024
 
         while self.is_receiving:
             try:
                 data, addr = self.sock.recvfrom(buffer_size)
-                data_content, data_type = self.package_manager.unpackage(data)
+                data_str = data.decode('utf-8')
+                data_content, data_type = self.package_manager.unpackage(data_str)
                 
                 if data_type is None:
                     continue

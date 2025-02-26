@@ -87,3 +87,37 @@ class GyroscopeNoise:
 		omega_meas = value + bg_rad_s + eta_v_rad_s  # rad/s
 		return omega_meas
 	
+class QuaternionNoise:
+    def __init__(self, mean=0.0, sigma_q=0.0001, seed=None):
+        self.mean = mean
+        self.sigma_q = sigma_q
+        if seed is not None:
+            np.random.seed(seed)
+    
+    def add_quaternion_noise(self, q_true):
+        # 确保输入是列向量
+        q_true = np.array(q_true).reshape(4, 1)
+        
+        # 生成噪声向量 v_q (3x1)，加入均值
+        v_q = np.random.normal(self.mean, self.sigma_q, (3, 1))
+        
+        # 构造测量噪声向量 q_v (4x1)
+        q_v = np.zeros((4, 1))
+        q_v[0] = np.sqrt(1 - v_q[0]**2 - v_q[1]**2 - v_q[2]**2)
+        q_v[1:] = v_q
+        
+        # 计算带噪声的测量值 (q_m = q ⊗ q_v)
+        q_m = self._quaternion_multiply(q_true, q_v)
+        
+        return q_m
+    
+    def _quaternion_multiply(self, q1, q2):
+        # 提取标量部分和向量部分
+        w1, v1 = q1[0], q1[1:]
+        w2, v2 = q2[0], q2[1:]
+        
+        # 计算结果四元数的标量和向量部分
+        w = w1 * w2 - np.dot(v1.T, v2)
+        v = w1 * v2 + w2 * v1 + np.cross(v1.T, v2.T).T
+        
+        return np.vstack((w, v))

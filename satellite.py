@@ -7,7 +7,7 @@ from gym import spaces
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 import logging
-from utils import Noise, GyroscopeNoise
+from utils import Noise, GyroscopeNoise, QuaternionNoise
 from config import EnvConfig
 
 
@@ -45,7 +45,7 @@ class Satellite:
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
-        self.q_noise = Noise(mean=config.sensor_noise.quaternion.noise_mean, std=config.sensor_noise.quaternion.noise_std)
+        self.q_noise = QuaternionNoise(mean=config.sensor_noise.quaternion.noise_mean, sigma_q=config.sensor_noise.quaternion.noise_std)
         self.gyro_noise = GyroscopeNoise(ARW=config.sensor_noise.gyroscope.ARW, RRW=config.sensor_noise.gyroscope.RRW, head_cnt=3)
         self.s_noise = Noise(mean=config.sensor_noise.sun_sensor.noise_mean, std=config.sensor_noise.sun_sensor.noise_std)
 
@@ -60,7 +60,7 @@ class Satellite:
 
         self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j, u)
 
-        self.q = self.q_noise.add_gaussian_noise(self.q, need_normalize=True)
+        self.q = self.q_noise.add_quaternion_noise(self.q)
         self.omega = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
 
         omega_d = get_omega_d(self.t)

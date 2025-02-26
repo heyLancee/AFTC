@@ -31,7 +31,6 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
 
     rewards = []
     states = []
-    actions = []
     state, done = eval_env.reset(), False
     state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
 
@@ -55,7 +54,6 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
 
         states.append(state)
         rewards.append(reward)
-        actions.append(action)
 
         # send telemetry data
         telemetry_data = TelemetryStruct()
@@ -72,7 +70,7 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
 
     states = np.array(states)
     rewards = np.array(rewards)
-    actions = np.array(actions)
+    actions = np.array(eval_env.u_buffer)
 
     if path is not None:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
@@ -102,7 +100,6 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
 
     rewards = []
     states = []
-    actions = []
     state, done = eval_env.reset(), False
     if fault_mode != -1:
         eval_env.fault_mode = fault_mode
@@ -167,7 +164,6 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
 
         states.append(state)
         rewards.append(reward)
-        actions.append(action)
 
         return done
 
@@ -183,7 +179,7 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
     # 在循环结束后转换为NumPy数组
     states = np.array(states)
     rewards = np.array(rewards)
-    actions = np.array(actions)
+    actions = np.array(eval_env.u_buffer)
 
     if path is not None:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
@@ -199,7 +195,7 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
 if __name__ == "__main__":
     policy = "TD3"
     # seed = np.random.randint(1, 100)
-    seed = 3
+    seed = 1
     env_name = "SunPointFaultSatellite"
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = [64, 128]
@@ -209,6 +205,7 @@ if __name__ == "__main__":
     noise_clip = 0.5
     policy_freq = 2
     policy_model_path = "u_max_005\TD3_SunPointFaultSatellite_1"
+    save_path = "results/u_max_005/eval_res.csv"
 
     config = EnvConfig()
 
@@ -267,7 +264,6 @@ if __name__ == "__main__":
         dynamicNet.load_model(dynamic_net_path)
 
     # Evaluate untrained policy
-    path = "results/eval_res.csv"
-    eval_policy(client, policy, dynamicNet, env_name, seed, path, is_plot=True)
+    eval_policy(client, policy, dynamicNet, env_name, seed, save_path, is_plot=True)
 
     client.close()

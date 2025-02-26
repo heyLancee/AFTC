@@ -2,8 +2,5 @@
 .vscode/
 __pycache__
 # models/
-# results/
+results/
 sample_data/
-
-# 忽略 results 目录下的 eval_res.csv
-results/eval_res.csv

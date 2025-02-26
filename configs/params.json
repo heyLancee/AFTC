@@ -2,7 +2,7 @@
     "simulation": {
         "t_max": 200,
         "ts": 0.1,
-        "fault_mode": 2
+        "fault_mode": 0
     },
     "satellite": {
         "inertia": {
@@ -23,8 +23,8 @@
     },
     "sensor_noise": {
         "gyroscope": {
-            "ARW": 0.2,
-            "RRW": 50
+            "ARW": 2e-2,
+            "RRW": 0.1
         },
         "quaternion": {
             "noise_mean": 0,
@@ -32,7 +32,7 @@
         },
         "sun_sensor": {
             "noise_mean": 0,
-            "noise_std": 1e-2
+            "noise_std": 2e-4
         }
     },
     "sun_pointing": {

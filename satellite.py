@@ -246,69 +246,79 @@ class FaultSatellite(Satellite):
                 self.e1 = 0.4
                 self.e2 = 0.3
                 self.e3 = 0.2
-                self.e4 = 0.2
+                self.e4 = 0
+                self.b1 = -0.003
+                self.b2 = 0
+                self.b3 = 0.004
+                self.b4 = -0.002
             elif fault_mode == 2:
                 self.e1 = 0.6
                 self.e2 = 0.1
                 self.e3 = 0.2
                 self.e4 = 0
-
-            if fault_mode != 0:
                 self.b1 = -0.005
-                self.b2 = 0
-                self.b3 = 0.007
+                self.b2 = 0.007
+                self.b3 = 0
                 self.b4 = 0.003
         elif t < 90:
             if fault_mode == 1:
                 self.e1 = 0.4
                 self.e2 = 0.1
                 self.e3 = 0.2
-                self.e4 = 0.1 * np.sin(0.5 * np.pi * t)
+                self.e4 = 0
+                self.b1 = 0.002
+                self.b2 = -0.001
+                self.b3 = 0.005
+                self.b4 = -0.004
             elif fault_mode == 2:
                 self.e1 = 0.7 * np.sin(0.5 * np.pi * t)
                 self.e2 = 0.2
                 self.e3 = 0.5 * np.sin(0.5 * np.pi * t)
                 self.e4 = 0
-
-            if fault_mode != 0:
-                self.b1 = 0.002
+                self.b1 = 0.001
                 self.b2 = -0.003
-                self.b3 = 0.005
+                self.b3 = -0.003
                 self.b4 = 0
         elif t < 120:
             if fault_mode == 1:
-                self.e1 = 1
-                self.e2 = 0.8
-                self.e3 = 0.6 + 0.1 * np.cos(0.5 * np.pi * t)
+                self.e1 = 0.7
+                self.e2 = 0.6
+                self.e3 = 0.4 + 0.1 * np.cos(0.5 * np.pi * t)
                 self.e4 = 0
+                self.b1 = 0
+                self.b2 = 0.003
+                self.b3 = 0
+                self.b4 = 0.001
             elif fault_mode == 2:
                 self.e1 = 0.4 * np.sin(0.5 * np.pi * t)
                 self.e2 = 0.3
                 self.e3 = 0.3 + 0.1 * np.cos(0.5 * np.pi * t)
                 self.e4 = 0
+                self.b1 = 0.003
+                self.b2 = 0
+                self.b3 = 0.001
+                self.b4 = 0
 
-            if fault_mode != 0:
-                self.b1 = 0
-                self.b2 = 0.003
-                self.b3 = 0
-                self.b4 = 0.001
         else:
             if fault_mode == 1:
-                self.e1 = 1
+                self.e1 = 0.5
                 self.e2 = 0.8
                 self.e3 = 0.6 + 0.1 * np.cos(0.5 * np.pi * t)
                 self.e4 = 0
+                self.b1 = 0.001
+                self.b2 = -0.004
+                self.b3 = 0
+                self.b4 = 0.003
             elif fault_mode == 2:
                 self.e1 = 0.8
                 self.e2 = 0.7
                 self.e3 = 0.6
                 self.e4 = 0
-
-            if fault_mode != 0:
                 self.b1 = 0
-                self.b2 = 0.003
-                self.b3 = 0
+                self.b2 = 0.001
+                self.b3 = 0.003
                 self.b4 = -0.004
+
 
     def plot_fault_satellite(self):
         times = np.linspace(0, self.t_max, len(self.uf_buffer))

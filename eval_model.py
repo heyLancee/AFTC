@@ -53,6 +53,7 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
         state = next_state
 
         states.append(state)
+        states[-1][:3] = eval_env.omega.flatten()
         rewards.append(reward)
 
         # send telemetry data

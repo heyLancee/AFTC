@@ -368,9 +368,7 @@ class SunPointSatellite(Satellite):
 
         self.sd = config.sun_pointing.desired_vector
         self.sd = self.sd / np.linalg.norm(self.sd)
-        self.si = config.sun_pointing.initial_vector
-        if self.si is None:
-            self.si = np.random.random((3, 1))
+        self.si = np.random.random((3, 1))
         self.si = self.si / np.linalg.norm(self.si)
         self.sb = None
         self.se = None

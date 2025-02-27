@@ -36,8 +36,7 @@
         }
     },
     "sun_pointing": {
-        "desired_vector": [0, 0, 1],
-        "initial_vector": null
+        "desired_vector": [0, 0, 1]
     },
     "satellite_observation_space": {
         "upper_bound": [1, 1, 1, 1, 5, 5, 5],

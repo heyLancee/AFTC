@@ -39,7 +39,6 @@ class SensorNoiseConfig:
 @dataclass
 class SunPointingConfig:
     desired_vector: np.ndarray
-    initial_vector: Optional[np.ndarray]
 
 @dataclass
 class ObservationSpaceConfig:
@@ -123,13 +122,8 @@ class EnvConfig:
 
             # 解析定日参数
             desired_vector = np.array(config['sun_pointing']['desired_vector']).reshape(-1, 1)
-            initial_vector = config['sun_pointing']['initial_vector']
-            if initial_vector is not None:
-                initial_vector = np.array(initial_vector).reshape(-1, 1)
-                
             self.sun_pointing = SunPointingConfig(
-                desired_vector=desired_vector,
-                initial_vector=initial_vector
+                desired_vector=desired_vector
             )
 
             # 解析观测

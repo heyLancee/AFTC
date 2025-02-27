@@ -39,6 +39,9 @@ class Satellite:
         self.q = None
         self.omega = None
         self.qd = None
+        
+        self.r_hat = np.array([[0], [0], [1]])
+        self.td = None
        
         obs = np.array(config.satellite_observation_space.upper_bound, dtype=np.float32)
         action = np.array(config.satellite_action_space.upper_bound, dtype=np.float32)
@@ -57,6 +60,8 @@ class Satellite:
         # clip
         torque = np.clip(torque.flatten(), -self.u_max, self.u_max)
         u = (self.C @ torque).reshape(-1, 1)
+    
+        u = u + self.td.reshape(-1, 1)
 
         self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j, u)
 
@@ -182,6 +187,9 @@ class Satellite:
         qe = get_q_e(self.qd, self.q)
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
+
+        self.td = 3 * 0.001 * 0.001 * np.cross(self.r_hat.flatten(), (self.j @ self.r_hat).flatten())
+        self.td = self.td.reshape(-1, 1)
         self.t = 0
         self.q_buffer = []
         self.omega_buffer = []

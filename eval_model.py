@@ -70,12 +70,14 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
 
     states = np.array(states)
     rewards = np.array(rewards)
+    angles = np.array(eval_env.theta_buffer)
     actions = np.array(eval_env.u_buffer)
 
     if path is not None:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
         df_uc = pd.DataFrame(actions, columns=[f'u_{i}' for i in range(len(actions[0]))])
         df = pd.concat([df, df_uc], axis=1)
+        df["angle"] = angles
         df['reward'] = rewards
         df.to_csv(path, index=False)
 
@@ -195,7 +197,7 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
 if __name__ == "__main__":
     policy = "TD3"
     # seed = np.random.randint(1, 100)
-    seed = 1
+    seed = 2
     env_name = "SunPointFaultSatellite"
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = [64, 128]

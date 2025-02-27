@@ -36,12 +36,12 @@ class Satellite:
         self.qe_buffer = []
         self.omega_e_buffer = []
         self.state = None
-        self.q = None
-        self.omega = None
-        self.qd = None
+        self.q = np.zeros((4, 1))
+        self.omega = np.zeros((3, 1))
+        self.qd = np.zeros((4, 1))
         
         self.r_hat = np.array([[0], [0], [1]])
-        self.td = None
+        self.td = np.zeros((3, 1))
        
         obs = np.array(config.satellite_observation_space.upper_bound, dtype=np.float32)
         action = np.array(config.satellite_action_space.upper_bound, dtype=np.float32)
@@ -230,8 +230,6 @@ class FaultSatellite(Satellite):
         self.b3 = 0
         self.b4 = 0
 
-        self.uf_buffer = None
-
     def update_u_f(self, torque):
         self.fault_inject(self.t, self.fault_mode)
         E = np.diag([self.e1, self.e2, self.e3, self.e4])
@@ -377,8 +375,8 @@ class SunPointSatellite(Satellite):
         self.sd = self.sd / np.linalg.norm(self.sd)
         self.si = np.random.random((3, 1))
         self.si = self.si / np.linalg.norm(self.si)
-        self.sb = None
-        self.se = None
+        self.sb = np.zeros((3, 1))
+        self.se = np.zeros((3, 1))
 
         self.theta_buffer = []
     
@@ -413,7 +411,6 @@ class SunPointSatellite(Satellite):
         return reward
 
     def reset_sun_point_satellite(self):
-        self.update_se()
         self.state = np.concatenate([self.state[4:7].flatten(), self.se.flatten()[:2]], axis=0).flatten()
 
     def reset(self):
@@ -452,7 +449,7 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         torque = torque.reshape(-1, 1)
         FaultSatellite.step_fault_satellite(self, torque)
         u = torque + self.uf_buffer[-1].reshape(-1, 1)
-        self.state, _, done, info = Satellite.step(self, u)
+        _, _, done, info = Satellite.step(self, u)
         SunPointSatellite.step_sun_point_satellite(self)
         reward = self.reward(self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
         return self.state, reward, done, info

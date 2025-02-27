@@ -59,7 +59,7 @@
         "BAUD": 115200,
         "polling_frequency": 100,
         "communication_frequency": 1000,
-        "time_constant": 0.1
+        "time_constant": 0.5
     },
     "udp": {
         "host": "127.0.0.1",

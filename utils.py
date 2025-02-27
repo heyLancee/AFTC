@@ -98,12 +98,16 @@ class QuaternionNoise:
         # 确保输入是列向量
         q_true = np.array(q_true).reshape(4, 1)
         
-        # 生成噪声向量 v_q (3x1)，加入均值
+        # 生成噪声向量 v_q (3x1)，并确保平方和小于1
         v_q = np.random.normal(self.mean, self.sigma_q, (3, 1))
-        
+        square_sum = np.sum(v_q**2)
+        if square_sum >= 1:
+            # 如果平方和大于1，对向量进行缩放
+            v_q = v_q / np.sqrt(square_sum + 1e-6)  # 添加小量防止除零
+            
         # 构造测量噪声向量 q_v (4x1)
         q_v = np.zeros((4, 1))
-        q_v[0] = np.sqrt(1 - v_q[0]**2 - v_q[1]**2 - v_q[2]**2)
+        q_v[0] = np.sqrt(1 - np.sum(v_q**2))
         q_v[1:] = v_q
         
         # 计算带噪声的测量值 (q_m = q ⊗ q_v)
@@ -121,3 +125,96 @@ class QuaternionNoise:
         v = w1 * v2 + w2 * v1 + np.cross(v1.T, v2.T).T
         
         return np.vstack((w, v))
+
+
+class Flywheel:
+    def __init__(self, time_constant, initial_torque=0.0, time_step=0.01):
+        """
+        初始化飞轮类。
+
+        参数:
+        - time_constant: 飞轮的时间常数 (τ_w)
+        - initial_torque: 飞轮的初始输出力矩 (默认 0.0)
+        - time_step: 时间步长 (Δt) (默认 0.01)
+        """
+        self.tau_w = time_constant  # 时间常数
+        self.u_w = initial_torque   # 当前输出力矩
+        self.dt = time_step         # 时间步长
+
+    def update(self, input_torque):
+        """
+        更新飞轮输出力矩。
+
+        参数:
+        - input_torque: 输入力矩 (u(t))
+
+        返回:
+        - 更新后的输出力矩 (u_w(t))
+        """
+        # 使用后向欧拉法更新输出力矩
+        input_torque = -input_torque
+        self.u_w = (self.tau_w * self.u_w - self.dt * input_torque) / (self.tau_w + self.dt)
+        return self.u_w
+
+    def reset(self, initial_torque=0.0):
+        """
+        重置飞轮状态。
+
+        参数:
+        - initial_torque: 重置后的初始输出力矩 (默认 0.0)
+        """
+        self.u_w = initial_torque
+
+# 示例使用
+if __name__ == "__main__":
+    # 初始化飞轮
+    flywheel = Flywheel(time_constant=0.1, time_step=0.01)
+    
+    # 生成时间序列
+    t_end = 10.0  # 10秒模拟时间
+    time = np.arange(0, t_end, flywheel.dt)
+    
+    # 生成高频输入信号（多个不同频率正弦波的叠加）
+    input_torques = (
+        0.5 * np.sin(2 * np.pi * 2.0 * time) +    # 2 Hz
+        0.3 * np.sin(2 * np.pi * 5.0 * time) +    # 5 Hz
+        0.2 * np.sin(2 * np.pi * 10.0 * time)     # 10 Hz
+    )
+    
+    output_torques = []
+    
+    # 动态更新飞轮输出力矩
+    for u in input_torques:
+        u_w = flywheel.update(u)
+        output_torques.append(u_w)
+    
+    # 绘制结果
+    plt.figure(figsize=(12, 6))
+    
+    # 绘制完整时间范围的响应
+    plt.subplot(1, 2, 1)
+    plt.plot(time, input_torques, label='Input Torque (u(t))', linestyle='--')
+    plt.plot(time, output_torques, label='Output Torque (u_w(t))')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Torque (Nm)')
+    plt.title('Complete Flywheel Dynamic Response')
+    plt.legend()
+    plt.grid(True)
+    
+    # 放大显示一小段时间范围
+    plt.subplot(1, 2, 2)
+    t_zoom = 1.0  # 放大显示1秒的数据
+    idx_zoom = int(t_zoom / flywheel.dt)
+    plt.plot(time[:idx_zoom], input_torques[:idx_zoom], 
+            label='Input Torque (u(t))', linestyle='--')
+    plt.plot(time[:idx_zoom], output_torques[:idx_zoom], 
+            label='Output Torque (u_w(t))')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Torque (Nm)')
+    plt.title('Zoomed Flywheel Response (First 1s)')
+    plt.legend()
+    plt.grid(True)
+    
+    plt.tight_layout()
+    plt.show()
+    

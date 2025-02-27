@@ -7,7 +7,7 @@ from gym import spaces
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 import logging
-from utils import Noise, GyroscopeNoise, QuaternionNoise
+from utils import Noise, GyroscopeNoise, QuaternionNoise, Flywheel
 from config import EnvConfig
 
 
@@ -52,6 +52,11 @@ class Satellite:
         self.gyro_noise = GyroscopeNoise(ARW=config.sensor_noise.gyroscope.ARW, RRW=config.sensor_noise.gyroscope.RRW, head_cnt=3)
         self.s_noise = Noise(mean=config.sensor_noise.sun_sensor.noise_mean, std=config.sensor_noise.sun_sensor.noise_std)
 
+        # 飞轮组
+        self.flywheel_group = []
+        for _ in range(self.C.shape[1]):
+            self.flywheel_group.append(Flywheel(time_constant=config.flywheel.time_constant, time_step=self.ts))
+
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
@@ -59,8 +64,10 @@ class Satellite:
         torque = torque.reshape(-1, 1)
         # clip
         torque = np.clip(torque.flatten(), -self.u_max, self.u_max)
+        for i in range(self.C.shape[1]):
+            torque[i] = self.flywheel_group[i].update(torque[i])
+
         u = (self.C @ torque).reshape(-1, 1)
-    
         u = u + self.td.reshape(-1, 1)
 
         self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j, u)

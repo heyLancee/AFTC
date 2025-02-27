@@ -56,6 +56,7 @@ class FlywheelConfig:
     BAUD: int
     polling_frequency: int
     communication_frequency: int
+    time_constant: float
 
 @dataclass
 class UdpConfig:
@@ -155,7 +156,8 @@ class EnvConfig:
                 COM=config['flywheel']['COM'],
                 BAUD=config['flywheel']['BAUD'],
                 polling_frequency=config['flywheel']['polling_frequency'],
-                communication_frequency=config['flywheel']['communication_frequency']
+                communication_frequency=config['flywheel']['communication_frequency'],
+                time_constant=config['flywheel']['time_constant']
             )
 
             # 解析UDP参数

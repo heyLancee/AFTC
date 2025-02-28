@@ -273,6 +273,15 @@ class FaultSatellite(Satellite):
                 self.b2 = 0.007
                 self.b3 = 0
                 self.b4 = 0.003
+            elif fault_mode == 3:
+                self.e1 = 0.5
+                self.e2 = 0.2
+                self.e3 = 0.4
+                self.e4 = 0
+                self.b1 = 0.003
+                self.b2 = -0.002
+                self.b3 = 0.001
+                self.b4 = -0.003
         elif t < 90:
             if fault_mode == 1:
                 self.e1 = 0.4
@@ -292,6 +301,15 @@ class FaultSatellite(Satellite):
                 self.b2 = -0.003
                 self.b3 = -0.003
                 self.b4 = 0
+            elif fault_mode == 3:
+                self.e1 = 0.6 
+                self.e2 = 0.3 * np.sin(0.4 * np.pi * t)
+                self.e3 = 0.4 * np.sin(0.4 * np.pi * t)
+                self.e4 = 0
+                self.b1 = -0.002
+                self.b2 = 0.003
+                self.b3 = 0.002
+                self.b4 = -0.001
         elif t < 120:
             if fault_mode == 1:
                 self.e1 = 0.7
@@ -311,7 +329,15 @@ class FaultSatellite(Satellite):
                 self.b2 = 0
                 self.b3 = 0.001
                 self.b4 = 0
-
+            elif fault_mode == 3:
+                self.e1 = 0.6
+                self.e2 = 0.4
+                self.e3 = 0.2 + 0.3 * np.cos(0.3 * np.pi * t)
+                self.e4 = 0
+                self.b1 = 0.004
+                self.b2 = -0.003
+                self.b3 = 0.002
+                self.b4 = -0.001
         else:
             if fault_mode == 1:
                 self.e1 = 0.5
@@ -331,7 +357,15 @@ class FaultSatellite(Satellite):
                 self.b2 = 0.001
                 self.b3 = 0.003
                 self.b4 = -0.004
-
+            elif fault_mode == 3:
+                self.e1 = 0.7
+                self.e2 = 0.5
+                self.e3 = 0.4
+                self.e4 = 0
+                self.b1 = -0.003
+                self.b2 = 0.002
+                self.b3 = -0.004
+                self.b4 = 0.001
 
     def plot_fault_satellite(self):
         times = np.linspace(0, self.t_max, len(self.uf_buffer))

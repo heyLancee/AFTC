@@ -207,7 +207,7 @@ class Satellite:
 
         self.logger.info("quat init: %s", self.q)
         self.logger.info("omega init: %s", self.omega)
-        self.logger.info("omega desired init: %s", self.qd)
+        self.logger.info("q desired init: %s", self.qd)
 
         return self.state
     

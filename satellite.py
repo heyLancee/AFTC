@@ -8,27 +8,27 @@ from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 import logging
 from utils import Noise, GyroscopeNoise, QuaternionNoise, Flywheel
-from config import EnvConfig
+from config import EnvConfig, OrbitConfig
 
 
 import numpy as np
 
 class Orbit:
-    def __init__(self, ts, t_max):
+    def __init__(self, ts, t_max, config: OrbitConfig):
         # 轨道常数
-        self.mu = 3.9860044e5  # 地球引力常数
-        self.a = 6978.14  # 轨道半长轴(km)
-        self.omega = 0 * np.pi/180  # 近地点幅角
-        self.Omega = 0 * np.pi/180  # 升交点赤经
-        self.incline = 97 * np.pi/180  # 轨道倾角
-        self.f = 0 * np.pi/180  # 真近点角
-        self.e = 0.05  # 轨道离心率
+        self.mu = config.mu  # 地球引力常数
+        self.a = config.a  # 轨道半长轴(km)
+        self.omega = config.omega * np.pi/180  # 近地点幅角
+        self.Omega = config.Omega * np.pi/180  # 升交点赤经
+        self.incline = config.incline * np.pi/180  # 轨道倾角
+        self.f = config.f * np.pi/180  # 真近点角
+        self.e = config.e  # 轨道离心率
         
         # 地磁场常数
-        self.mum = 7.746e12  # 地球磁场中的偶极子强度(Wb·km)
-        self.thetam = 170 * np.pi/180  # 偶极子的共生角度
-        self.we = 360.99 * np.pi/180/24/3600  # 地球的平均自转角速度
-        self.alpha0 = 4.54  # t=0时偶极子的赤经
+        self.mum = config.mum  # 地球磁场中的偶极子强度(Wb·km)
+        self.thetam = config.thetam * np.pi/180  # 偶极子的共生角度
+        self.we = config.we * np.pi/180/24/3600  # 地球的平均自转角速度
+        self.alpha0 = config.alpha0  # t=0时偶极子的赤经
         
         # 时间参数
         self.ts = ts
@@ -40,8 +40,10 @@ class Orbit:
         self.Bi = np.zeros((3, self.Nk))  # 地磁场向量
         
         # 设置初始状态
-        self.R[:,0] = np.array([-763703, -6703104, 2140225]) * 1e-3
-        self.V[:,0] = np.array([-1378.74, -2111.33, -7071.2857]) * 1e-3
+        init_pos = np.array(config.position) * 1e-3
+        init_vel = np.array(config.velocity) * 1e-3
+        self.R[:,0] = init_pos
+        self.V[:,0] = init_vel
         
         # 计算初始地磁场
         self._update_magnetic_field(0)
@@ -106,6 +108,7 @@ class Satellite:
 
         self.j = config.satellite.inertia
         self.j_inv = np.linalg.inv(self.j)
+        self.delta_j = config.satellite.delta_inertia
         self.C = config.satellite.actuator.installation_matrix
 
         self.u_max = config.satellite.actuator.u_max
@@ -121,7 +124,7 @@ class Satellite:
         self.omega = np.zeros((3, 1))
         self.qd = np.zeros((4, 1))
         
-        self.orbit = Orbit(ts=self.ts, t_max=self.t_max)
+        self.orbit = Orbit(ts=self.ts, t_max=self.t_max, config=config.orbit)
         self.td = np.zeros((3, 1))
        
         obs = np.array(config.satellite_observation_space.upper_bound, dtype=np.float32)
@@ -171,7 +174,7 @@ class Satellite:
         u = (self.C @ torque).reshape(-1, 1)
         u = u + self.td.reshape(-1, 1)
 
-        self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j, u)
+        self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j+self.delta_j, u)
 
         self.q = self.q_noise.add_quaternion_noise(self.q)
         self.omega = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
@@ -507,8 +510,7 @@ class SunPointSatellite(Satellite):
 
         self.sd = config.sun_pointing.desired_vector
         self.sd = self.sd / np.linalg.norm(self.sd)
-        self.si = np.random.random((3, 1))
-        self.si = self.si / np.linalg.norm(self.si)
+        self.si = config.orbit.sun_vector
         self.sb = np.zeros((3, 1))
         self.se = np.zeros((3, 1))
 

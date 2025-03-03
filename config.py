@@ -11,6 +11,23 @@ class SimulationConfig:
     fault_mode: int
 
 @dataclass
+class OrbitConfig:
+    mu: float
+    a: float
+    omega: float
+    Omega: float
+    incline: float
+    f: float
+    e: float
+    mum: float
+    thetam: float
+    we: float
+    alpha0: float
+    position: np.ndarray
+    velocity: np.ndarray
+    sun_vector: np.ndarray
+
+@dataclass
 class ActuatorConfig:
     u_max: np.ndarray
     installation_matrix: np.ndarray
@@ -18,6 +35,7 @@ class ActuatorConfig:
 @dataclass
 class SatelliteConfig:
     inertia: np.ndarray
+    delta_inertia: np.ndarray
     actuator: ActuatorConfig
 
 @dataclass
@@ -96,9 +114,28 @@ class EnvConfig:
                 fault_mode=config['simulation']['fault_mode']
             )
 
+            # 解析轨道参数
+            self.orbit = OrbitConfig(
+                mu=config['orbit']['constants']['mu'],
+                a=config['orbit']['constants']['a'],
+                omega=config['orbit']['constants']['omega'],
+                Omega=config['orbit']['constants']['Omega'],
+                incline=config['orbit']['constants']['incline'],
+                f=config['orbit']['constants']['f'],
+                e=config['orbit']['constants']['e'],
+                mum=config['orbit']['magnetic_field']['mum'],
+                thetam=config['orbit']['magnetic_field']['thetam'],
+                we=config['orbit']['magnetic_field']['we'],
+                alpha0=config['orbit']['magnetic_field']['alpha0'],
+                position=np.array(config['orbit']['initial_state']['position']),
+                velocity=np.array(config['orbit']['initial_state']['velocity']),
+                sun_vector=np.array(config['orbit']['sun_vector'])
+            )
+
             # 解析卫星参数
             self.satellite = SatelliteConfig(
                 inertia=np.array(config['satellite']['inertia']['J']),
+                delta_inertia=np.array(config['satellite']['inertia']['delta_J']),
                 actuator=ActuatorConfig(
                     u_max=np.array(config['satellite']['actuator']['u_max']),
                     installation_matrix=np.array(config['satellite']['actuator']['installation_matrix'])

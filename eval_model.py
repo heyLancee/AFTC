@@ -12,6 +12,7 @@ import sys
 from udp_client import UdpClient
 from base import TelemetryStruct
 from config import EnvConfig
+from copy import deepcopy
 
 
 def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=False):
@@ -52,8 +53,8 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
         next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
         state = next_state
 
-        states.append(state)
-        states[-1][:3] = eval_env.omega.flatten()
+        states.append(deepcopy(state))
+        states[-1][:3] = deepcopy(eval_env.omega.flatten())
         rewards.append(reward)
 
         # send telemetry data
@@ -198,7 +199,7 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
 if __name__ == "__main__":
     policy = "TD3"
     # seed = np.random.randint(1, 100)
-    seed = 2
+    seed = 1
     env_name = "SunPointFaultSatellite"
     dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
     hidden_size = [64, 128]

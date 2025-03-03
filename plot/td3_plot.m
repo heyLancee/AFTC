@@ -43,6 +43,15 @@ dyn_est_err_f2 = eval_res_f2(2:end, 6:8);
 u_f2 = eval_res_f2(2:end, 9:11);
 angle_f2 = eval_res_f2(2:end, 12);
 
+% unknown_fault
+eval_res_unknown_fault = readmatrix ('../results/u_max_005/eval_res_unknown_fault.csv');
+omega_e_unknown_fault = eval_res_unknown_fault(2:end, 1:3) * 180 / pi;
+s_e_unknown_fault = eval_res_unknown_fault(2:end, 4:5);
+s_e_unknown_fault = [s_e_unknown_fault zeros(size(s_e_unknown_fault, 1), 1)];
+dyn_est_err_unknown_fault = eval_res_unknown_fault(2:end, 6:8);
+u_unknown_fault = eval_res_unknown_fault(2:end, 9:11);
+angle_unknown_fault = eval_res_unknown_fault(2:end, 12);
+
 %% Reward plot (single plot)
 figure
 hold on; box on;
@@ -55,7 +64,7 @@ ylabel('奖励', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
 set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
 
 %% omega_e_fault_free, u_fault_free, and angle_fault_free plot (3x1 subplot)
-if 0
+if 1
     figure;
     
     x_label = '时间(s)';
@@ -175,7 +184,7 @@ end
 
 
 %% omega_e_f2, u_f2, and angle_f2 plot (3x1 subplot)
-if 1
+if 0
     figure;
     
     x_label = '时间(s)';
@@ -233,4 +242,61 @@ if 1
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
 end
 
-
+%% omega_e_unknown_fault, u_unknown_fault, and angle_unknown_fault plot (3x1 subplot)
+if 0
+    figure;
+    
+    x_label = '时间(s)';
+    % omega_e_unknown_fault Plot (angular velocity error)
+    subplot(1, 1, 1); % Create 3x1 grid, plot in 1st position
+    hold on; box on;
+    set(gca, 'FontSize', 14);
+    plot(tspan, omega_e_unknown_fault(:, 1), 'r-', 'LineWidth', 1.5); % Omega_x with red solid line
+    plot(tspan, omega_e_unknown_fault(:, 2), 'g--', 'LineWidth', 1.5); % Omega_y with green dashed line
+    plot(tspan, omega_e_unknown_fault(:, 3), 'b-.', 'LineWidth', 1.5); % Omega_z with blue dash-dot line
+    legend({'$\omega_{x}$', '$\omega_{y}$', '$\omega_{z}$'}, 'FontSize', 18, 'Interpreter', 'latex');
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+    xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
+    ylabel('角速度(deg/s)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
+    set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    
+    % u_unknown_fault Plot (control input)
+    figure;
+    subplot(1, 1, 1); % Create 3x1 grid, plot in 2nd position
+    hold on; box on;
+    set(gca, 'FontSize', 14);
+    plot(tspan, u_unknown_fault(:, 1), 'r-', 'LineWidth', 1.5); % Control input u_x with red solid line
+    plot(tspan, u_unknown_fault(:, 2), 'g--', 'LineWidth', 1.5); % Control input u_y with green dashed line
+    plot(tspan, u_unknown_fault(:, 3), 'b-.', 'LineWidth', 1.5); % Control input u_z with blue dash-dot line
+    legend({'$u_x$', '$u_y$', '$u_z$'}, 'FontSize', 18, 'Interpreter', 'latex');
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+    xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
+    ylabel('控制力矩(Nm)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
+    set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    
+    % Angle Plot (attitude angle_unknown_fault)
+    figure;
+    subplot(1, 1, 1); % Create 3x1 grid, plot in 3rd position
+    hold on; box on;
+    set(gca, 'FontSize', 14);
+    plot(tspan, angle_unknown_fault, 'm-', 'LineWidth', 1.5); % Angle with magenta solid line
+    legend('$\theta$', 'FontSize', 18);
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+    xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
+    ylabel('对日角度(deg)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
+    set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    
+    % Se (sun vector error)
+    figure;
+    subplot(1, 1, 1); % Create 3x1 grid, plot in 3rd position
+    hold on; box on;
+    set(gca, 'FontSize', 14);
+    plot(tspan, s_e_unknown_fault(:, 1), 'r-', 'LineWidth', 1.5); % Angle with magenta solid line
+    plot(tspan, s_e_unknown_fault(:, 2), 'g--', 'LineWidth', 1.5); % Omega_y with green dashed line
+    plot(tspan, s_e_unknown_fault(:, 3), 'b-.', 'LineWidth', 1.5); % Omega_y with green dashed line
+    legend('$s_{e1}$', '$s_{e2}$', '$s_{e3}$', 'FontSize', 18);
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+    xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
+    ylabel('太阳矢量误差', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
+    set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+end

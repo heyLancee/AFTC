@@ -11,6 +11,87 @@ from utils import Noise, GyroscopeNoise, QuaternionNoise, Flywheel
 from config import EnvConfig
 
 
+import numpy as np
+
+class Orbit:
+    def __init__(self, ts, t_max):
+        # 轨道常数
+        self.mu = 3.9860044e5  # 地球引力常数
+        self.a = 6978.14  # 轨道半长轴(km)
+        self.omega = 0 * np.pi/180  # 近地点幅角
+        self.Omega = 0 * np.pi/180  # 升交点赤经
+        self.incline = 97 * np.pi/180  # 轨道倾角
+        self.f = 0 * np.pi/180  # 真近点角
+        self.e = 0.05  # 轨道离心率
+        
+        # 地磁场常数
+        self.mum = 7.746e12  # 地球磁场中的偶极子强度(Wb·km)
+        self.thetam = 170 * np.pi/180  # 偶极子的共生角度
+        self.we = 360.99 * np.pi/180/24/3600  # 地球的平均自转角速度
+        self.alpha0 = 4.54  # t=0时偶极子的赤经
+        
+        # 时间参数
+        self.ts = ts
+        self.Nk = int(t_max/ts)
+        
+        # 初始化状态向量
+        self.R = np.zeros((3, self.Nk))  # 位置向量
+        self.V = np.zeros((3, self.Nk))  # 速度向量
+        self.Bi = np.zeros((3, self.Nk))  # 地磁场向量
+        
+        # 设置初始状态
+        self.R[:,0] = np.array([-763703, -6703104, 2140225]) * 1e-3
+        self.V[:,0] = np.array([-1378.74, -2111.33, -7071.2857]) * 1e-3
+        
+        # 计算初始地磁场
+        self._update_magnetic_field(0)
+        
+        # 计算整个轨道
+        self._propagate_orbit()
+    
+    def _update_magnetic_field(self, k):
+        """更新地磁场向量"""
+        hat_R = self.R[:,k] / np.linalg.norm(self.R[:,k])
+        hat_p = np.array([
+            np.sin(self.thetam) * np.cos(self.we * k * self.ts + self.alpha0),
+            np.sin(self.thetam) * np.sin(self.we * k * self.ts + self.alpha0),
+            np.cos(self.thetam)
+        ])
+        
+        R_norm = np.linalg.norm(self.R[:,k])
+        self.Bi[:,k] = (self.mum/R_norm**3) * (
+            3 * np.dot(hat_p, hat_R) * hat_R - hat_p
+        )
+    
+    def _propagate_orbit(self):
+        """传播整个轨道"""
+        for k in range(1, self.Nk):
+            # 二体运动方程
+            R_norm = np.linalg.norm(self.R[:,k-1])
+            dotV = -self.mu * self.R[:,k-1] / R_norm**3
+            
+            # 更新状态
+            self.V[:,k] = self.V[:,k-1] + dotV * self.ts
+            self.R[:,k] = self.R[:,k-1] + self.V[:,k] * self.ts
+            
+            # 更新地磁场
+            self._update_magnetic_field(k)
+    
+    def get_magnetic_field(self, t):
+        """获取特定时刻的地磁场向量"""
+        k = int(t/self.ts)
+        if k >= self.Nk:
+            k = self.Nk - 1
+        return self.Bi[:,k]
+    
+    def get_position(self, t):
+        """获取特定时刻的位置向量"""
+        k = int(t/self.ts)
+        if k >= self.Nk:
+            k = self.Nk - 1
+        return self.R[:,k]
+    
+
 class Satellite:
     def __init__(self, config: EnvConfig):
         if hasattr(self, 'is_init') and self.is_init:
@@ -40,7 +121,7 @@ class Satellite:
         self.omega = np.zeros((3, 1))
         self.qd = np.zeros((4, 1))
         
-        self.r_hat = np.array([[0], [0], [1]])
+        self.orbit = Orbit(ts=self.ts, t_max=self.t_max)
         self.td = np.zeros((3, 1))
        
         obs = np.array(config.satellite_observation_space.upper_bound, dtype=np.float32)
@@ -66,6 +147,26 @@ class Satellite:
         torque = np.clip(torque.flatten(), -self.u_max, self.u_max)
         for i in range(self.C.shape[1]):
             torque[i] = self.flywheel_group[i].update(torque[i])
+
+        Bi = self.orbit.get_magnetic_field(self.t)*1e-6
+        q_correct = np.array([self.q[1], self.q[2], self.q[3], self.q[0]])
+        R = Rotation.from_quat(q_correct.flatten()).as_matrix().T
+        Bb = R @ Bi
+        
+        # 计算重力梯度力矩
+        r = self.orbit.get_position(self.t)
+        r_norm = np.linalg.norm(r)
+        w0 = np.sqrt(self.orbit.mu / r_norm**3)  # 轨道角速度
+        E_r = R @ np.array([0, 0, -1]).reshape(-1,1)  # 地心指向矢量在体坐标系下的表示
+        E_r = E_r / np.linalg.norm(E_r)
+        Tg = 3 * w0**2 * np.cross(E_r.flatten(), (self.j @ E_r).flatten())
+        
+        # 计算磁力矩
+        M_res = np.array([6, -6, 6]).reshape(-1,1)  # 剩余磁矩,单位:A·m^2
+        Tm = np.cross(M_res.flatten(), Bb.flatten())
+        
+        # 合并环境力矩
+        self.td = Tg.reshape(-1,1) + Tm.reshape(-1,1)
 
         u = (self.C @ torque).reshape(-1, 1)
         u = u + self.td.reshape(-1, 1)
@@ -195,8 +296,7 @@ class Satellite:
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
 
-        self.td = 3 * 0.001 * 0.001 * np.cross(self.r_hat.flatten(), (self.j @ self.r_hat).flatten())
-        self.td = self.td.reshape(-1, 1)
+        self.td = np.zeros((3, 1))
         self.t = 0
         self.q_buffer = []
         self.omega_buffer = []

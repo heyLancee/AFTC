@@ -40,17 +40,17 @@
             ]
         },
         "actuator": {
-            "u_max": [0.05, 0.05, 0.05, 0.05],
+            "u_max": [0.05, 0.05, 0.05],
             "installation_matrix": [
-                [1, 0, 0, 0.5773502691896257],
-                [0, 1, 0, 0.5773502691896257],
-                [0, 0, 1, 0.5773502691896257]
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1]
             ]
         }
     },
     "sensor_noise": {
         "gyroscope": {
-            "ARW": 2e-2,
+            "ARW": 1e-2,
             "RRW": 0.1
         },
         "quaternion": {
@@ -59,7 +59,7 @@
         },
         "sun_sensor": {
             "noise_mean": 0,
-            "noise_std": 2e-4
+            "noise_std": 1e-4
         }
     },
     "sun_pointing": {
@@ -70,16 +70,16 @@
         "lower_bound": [-1, -1, -1, -1, -5, -5, -5]
     },
     "satellite_action_space": {
-        "upper_bound": [1, 1, 1, 1],
-        "lower_bound": [-1, -1, -1, -1]
+        "upper_bound": [1, 1, 1],
+        "lower_bound": [-1, -1, -1]
     },
     "sun_pointing_observation_space": {
         "upper_bound": [5, 5, 5, 1, 1],
         "lower_bound": [-5, -5, -5, -1, -1]
     },
     "sun_pointing_action_space": {
-        "upper_bound": [1, 1, 1, 1],
-        "lower_bound": [-1, -1, -1, -1]
+        "upper_bound": [1, 1, 1],
+        "lower_bound": [-1, -1, -1]
     },
     "flywheel": {
         "COM": "COM5",

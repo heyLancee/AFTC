@@ -15,7 +15,7 @@ from config import EnvConfig
 from copy import deepcopy
 
 
-def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=False):
+def eval_policy(agent, dynamic_net, env_name, seed, path=None, client=None, is_plot=False):
     config = EnvConfig()
 
     if env_name == "Satellite":
@@ -58,22 +58,25 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
         rewards.append(reward)
 
         # send telemetry data
-        telemetry_data = TelemetryStruct()
-        telemetry_data.timeStep = eval_env.t
-        telemetry_data.wx = eval_env.omega[0] * 180 / np.pi
-        telemetry_data.wy = eval_env.omega[1] * 180 / np.pi
-        telemetry_data.wz = eval_env.omega[2] * 180 / np.pi
-        telemetry_data.q0 = eval_env.q[0]
-        telemetry_data.q1 = eval_env.q[1]
-        telemetry_data.q2 = eval_env.q[2]
-        telemetry_data.q3 = eval_env.q[3]
-        telemetry_data.zAngle = eval_env.theta_buffer[-1]
-        client.send_data(telemetry_data)
+        if client is not None:
+            telemetry_data = TelemetryStruct()
+            telemetry_data.timeStep = eval_env.t
+            telemetry_data.wx = eval_env.omega[0] * 180 / np.pi
+            telemetry_data.wy = eval_env.omega[1] * 180 / np.pi
+            telemetry_data.wz = eval_env.omega[2] * 180 / np.pi
+            telemetry_data.q0 = eval_env.q[0]
+            telemetry_data.q1 = eval_env.q[1]
+            telemetry_data.q2 = eval_env.q[2]
+            telemetry_data.q3 = eval_env.q[3]
+            telemetry_data.zAngle = eval_env.theta_buffer[-1]
+            client.send_data(telemetry_data)
 
     states = np.array(states)
     rewards = np.array(rewards)
     angles = np.array(eval_env.theta_buffer)
     actions = np.array(eval_env.u_buffer)
+
+    print("reward: ", np.sum(rewards))
 
     if path is not None:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
@@ -86,8 +89,10 @@ def eval_policy(client, agent, dynamic_net, env_name, seed, path=None, is_plot=F
     if is_plot:
         eval_env.plot()
 
+    return np.sum(rewards)
 
-def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, path=None, is_plot=False):
+
+def eval_policy_with_flywheel(agent, dynamic_net, env_name, seed, path=None, is_plot=False):
     config = EnvConfig()
 
     if env_name == "Satellite":
@@ -105,8 +110,6 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
     rewards = []
     states = []
     state, done = eval_env.reset(), False
-    if fault_mode != -1:
-        eval_env.fault_mode = fault_mode
     state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
     torque_0 = 0
 
@@ -194,6 +197,8 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, fault_mode, seed, pa
 
     if is_plot:
         eval_env.plot()
+        
+    return np.sum(rewards)
 
 
 if __name__ == "__main__":
@@ -208,15 +213,15 @@ if __name__ == "__main__":
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    policy_model_path = "u_max_005\TD3_SunPointFaultSatellite_1"
+    policy_model_path = "2025-03-08_11-31-51_2\TD3_SunPointFaultSatellite_2"
     save_path = "results/u_max_005/eval_res.csv"
 
     config = EnvConfig()
 
-    client = UdpClient(config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
-    if not client.connect_to_server():
-        print("Failed to connect to server")
-        sys.exit(1)
+    # client = UdpClient(config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
+    # if not client.connect_to_server():
+    #     print("Failed to connect to server")
+    #     sys.exit(1)
 
     if env_name == "Satellite":
         env = Satellite(config)
@@ -230,10 +235,10 @@ if __name__ == "__main__":
         env = gym.make(env_name)
 
     # Set seeds
-    env.seed(seed)
-    env.action_space.seed(seed)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    # env.seed(seed)
+    # env.action_space.seed(seed)
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
 
     state_dim = env.observation_space.shape[0]
     state_dim += td3.STATE_APPEND_NUM
@@ -246,7 +251,7 @@ if __name__ == "__main__":
         "max_action": max_action,
         "discount": discount,
         "tau": tau,
-        "hidden_size": [256, 256],
+        "hidden_size": [400, 300],
     }
 
     # Initialize policy
@@ -268,6 +273,6 @@ if __name__ == "__main__":
         dynamicNet.load_model(dynamic_net_path)
 
     # Evaluate untrained policy
-    eval_policy(client, policy, dynamicNet, env_name, seed, save_path, is_plot=True)
-
-    client.close()
+    reward = eval_policy(policy, dynamicNet, env_name, seed, path=None, client=None, is_plot=True)
+    print("reward: ", reward)
+    # client.close()

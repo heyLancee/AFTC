@@ -8,6 +8,7 @@ import td3
 from dyn_net import AttitudeDynamicsNN
 from eval_model import eval_policy
 from satellite import *
+from config import EnvConfig
 
 
 if __name__ == "__main__":
@@ -21,7 +22,7 @@ if __name__ == "__main__":
 	parser.add_argument("--eval_episodes", default=10, type=int)
 	parser.add_argument("--max_timesteps", default=1e6, type=int)   # Max time steps to run environment
 	parser.add_argument("--expl_noise", default=0.1, type=float)    # Std of Gaussian exploration noise
-	parser.add_argument("--policy_hidden_size", default=512, type=int)
+	parser.add_argument('--policy_hidden_size', type=str, default="256,256", help="Hidden sizes for the policy network")
 	parser.add_argument("--batch_size", default=256, type=int)      # Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99, type=float)     # Discount factor
 	parser.add_argument("--tau", default=0.005, type=float)         # Target network update rate
@@ -57,24 +58,24 @@ if __name__ == "__main__":
 	if args.save_model and not os.path.exists(f"./models/{args.dir}"):
 		os.makedirs(f"./models/{args.dir}")
 
+	config = EnvConfig()
+
 	if args.env == "Satellite":
-		env = Satellite()
-	if args.env == "Satellite":
-		env = Satellite()
+		env = Satellite(config)
 	elif args.env == "FaultSatellite":
-		env = FaultSatellite()
+		env = FaultSatellite(config)
 	elif args.env == "SunPointSatellite":
-		env = SunPointSatellite()
+		env = SunPointSatellite(config)
 	elif args.env == "SunPointFaultSatellite":
-		env = SunPointFaultSatellite()
+		env = SunPointFaultSatellite(config)
 	else:
 		env = gym.make(args.env)
 
 	# Set seeds
-	env.seed(args.seed)
-	env.action_space.seed(args.seed)
-	torch.manual_seed(args.seed)
-	np.random.seed(args.seed)
+	# env.seed(args.seed)
+	# env.action_space.seed(args.seed)
+	# torch.manual_seed(args.seed)
+	# np.random.seed(args.seed)
 	
 	state_dim = env.observation_space.shape[0]
 	# state_dim append with the vars related to dyanmic net
@@ -89,7 +90,7 @@ if __name__ == "__main__":
 		"discount": args.discount,
 		"tau": args.tau,
 		"lr": args.lr,
-		"hidden_size": args.policy_hidden_size,
+		"hidden_size": list(map(int, args.policy_hidden_size.split(','))),
 		"weight_decay": args.weight_decay
 	}
 
@@ -108,7 +109,7 @@ if __name__ == "__main__":
 		print("agent load model: ", policy_file)
 		policy.load(f"./models/{policy_file}")
 
-	dynamic_net = AttitudeDynamicsNN(args.dyn_hidden_size)
+	dynamic_net = AttitudeDynamicsNN(list(map(int, args.dyn_hidden_size.split(','))))
 	if args.dyn_net_path != "":
 		print(f"Load dynamic net: {args.dyn_net_path}")
 		dynamic_net.load_model(args.dyn_net_path)
@@ -121,7 +122,7 @@ if __name__ == "__main__":
 	state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 
 	# Evaluate untrained policy
-	evaluations = [eval_policy(policy, dynamic_net, args.env, env.fault_mode, args.seed, path=None)]
+	evaluations = [eval_policy(policy, dynamic_net, args.env, args.seed)]
 
 	episode_reward = 0
 	episode_timesteps = 0
@@ -184,7 +185,7 @@ if __name__ == "__main__":
 		if (t + 1) % args.eval_freq == 0:
 			eval_reward = 0
 			for _ in range(args.eval_episodes):
-				eval_reward += eval_policy(policy, dynamic_net, args.env, env.fault_mode, args.seed, path=None)
+				eval_reward += eval_policy(policy, dynamic_net, args.env, args.seed)
 			evaluations.append(eval_reward / args.eval_episodes)
 			pd.DataFrame(evaluations).to_csv(f"./results/{file_name}.csv")
 			if args.save_model:

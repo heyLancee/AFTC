@@ -96,6 +96,19 @@ class TD3(object):
 
 		self.total_it = 0
 
+		# 添加学习率调度器
+		self.actor_scheduler = torch.optim.lr_scheduler.StepLR(
+			self.actor_optimizer, 
+			step_size=100000,
+			gamma=0.9
+		)
+		
+		self.critic_scheduler = torch.optim.lr_scheduler.StepLR(
+			self.critic_optimizer,
+			step_size=200000,
+			gamma=0.9
+		)
+
 	def select_action(self, state):
 		state = torch.FloatTensor(state.reshape(1, -1)).to(device)
 		return self.actor(state).cpu().data.numpy().flatten()
@@ -150,6 +163,10 @@ class TD3(object):
 			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
+			# 更新学习率
+			self.actor_scheduler.step()
+			self.critic_scheduler.step()
+
 
 	def save(self, filename):
 		torch.save(self.critic.state_dict(), filename + "_critic")
@@ -157,6 +174,8 @@ class TD3(object):
 		
 		torch.save(self.actor.state_dict(), filename + "_actor")
 		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
+		torch.save(self.actor_scheduler.state_dict(), filename + "_actor_scheduler")
+		torch.save(self.critic_scheduler.state_dict(), filename + "_critic_scheduler")
 
 
 	def load(self, filename):
@@ -167,4 +186,7 @@ class TD3(object):
 		self.actor.load_state_dict(torch.load(filename + "_actor", map_location=device))
 		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=device))
 		self.actor_target = copy.deepcopy(self.actor)
+		
+		self.actor_scheduler.load_state_dict(torch.load(filename + "_actor_scheduler", map_location=device))
+		self.critic_scheduler.load_state_dict(torch.load(filename + "_critic_scheduler", map_location=device))
 		

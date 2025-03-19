@@ -8,8 +8,9 @@ close all;
 
 %%
 % reward
-reward = readmatrix ('../results/u_max_005_2/TD3_SunPointFaultSatellite_5.csv');
-reward = reward(2:end, 2);
+reward1 = readmatrix('../results/u_max_005_2/TD3_SunPointFaultSatellite_5.csv');
+reward2 = readmatrix('../results/u_max_005/TD3_SunPointFaultSatellite_3.csv');
+reward3 = readmatrix('../results/u_max_005_3/TD3_SunPointFaultSatellite_1.csv');
 
 % eval
 Time = 200;
@@ -53,18 +54,27 @@ u_unknown_fault = eval_res_unknown_fault(2:end, 9:11);
 angle_unknown_fault = eval_res_unknown_fault(2:end, 12);
 
 %% Reward plot (single plot)
-figure
-hold on; box on;
+x = 1:length(reward1);
+all_rewards = [reward1; reward2; reward3]';
+mean_rewards = mean(all_rewards, 2);
+std_rewards = std(all_rewards, 0, 2);
+CI = 1.96 * std_rewards / sqrt(size(all_rewards, 2)); % 计算每个时间步的置信区间
+
+figure;
+hold on;
 set(gca, 'FontSize', 14);
-plot(reward, 'b-', 'LineWidth', 1.5); % Reward plot with solid blue line
-legend('奖励', 'FontSize', 18);
-set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 20]);
+fill([x, fliplr(x)], [mean_rewards + CI; flipud(mean_rewards - CI)], 'b', 'FaceAlpha', 0.2, 'EdgeColor', 'none');
+plot(x, mean_rewards, 'b', 'LineWidth', 1.5);
 xlabel('训练次数', 'FontName', 'SimSun', 'FontSize', 18);
 ylabel('奖励', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
-set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+legend('95%置信区间', 'Location', 'Best', 'FontSize', 18);
+set(gca, 'box', 'off'); % 关闭默认的四边框
+set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+hold off;
 
 %% omega_e_fault_free, u_fault_free, and angle_fault_free plot (3x1 subplot)
-if 1
+if 0
     figure;
     
     x_label = '时间(s)';
@@ -80,6 +90,8 @@ if 1
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('角速度(deg/s)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % u_fault_free Plot (control input)
     figure;
@@ -94,7 +106,9 @@ if 1
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('控制力矩(Nm)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
-    
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+
     % Angle Plot (attitude angle_fault_free)
     figure;
     subplot(1, 1, 1); % Create 3x1 grid, plot in 3rd position
@@ -106,6 +120,8 @@ if 1
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('对日角度(deg)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % Se (sun vector error)
     figure;
@@ -120,6 +136,8 @@ if 1
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('太阳矢量误差', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 end
 
 
@@ -140,6 +158,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('角速度(deg/s)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % u_f1 Plot (control input)
     figure;
@@ -154,6 +174,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('控制力矩(Nm)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % Angle Plot (attitude angle_f1)
     figure;
@@ -166,7 +188,9 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('对日角度(deg)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
-    
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+
     % Se (sun vector error)
     figure;
     subplot(1, 1, 1); % Create 3x1 grid, plot in 3rd position
@@ -180,6 +204,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('太阳矢量误差', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 end
 
 
@@ -200,6 +226,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('角速度(deg/s)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % u_f2 Plot (control input)
     figure;
@@ -214,6 +242,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('控制力矩(Nm)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % Angle Plot (attitude angle_f2)
     figure;
@@ -226,6 +256,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('对日角度(deg)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % Se (sun vector error)
     figure;
@@ -240,10 +272,12 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('太阳矢量误差', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 end
 
 %% omega_e_unknown_fault, u_unknown_fault, and angle_unknown_fault plot (3x1 subplot)
-if 0
+if 1
     figure;
     
     x_label = '时间(s)';
@@ -259,6 +293,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('角速度(deg/s)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % u_unknown_fault Plot (control input)
     figure;
@@ -273,6 +309,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('控制力矩(Nm)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % Angle Plot (attitude angle_unknown_fault)
     figure;
@@ -285,6 +323,8 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('对日角度(deg)', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
     
     % Se (sun vector error)
     figure;
@@ -299,4 +339,6 @@ if 0
     xlabel(x_label, 'FontName', 'SimSun', 'FontSize', 18);
     ylabel('太阳矢量误差', 'FontName', 'SimSun', 'FontSize', 18, 'Interpreter', 'latex');
     set(gcf, 'Unit', 'centimeters', 'Position', [5, 2, 25, 15]);
+    set(gca, 'box', 'off'); % 关闭默认的四边框
+    set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 end

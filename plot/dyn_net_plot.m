@@ -55,6 +55,7 @@ err_omega_z_f2 = err_f2(:, 3);
 %% subplots
 % fault free pred and actual
 figure
+box off;
 set(gcf,'unit','centimeters','position',[5,2,20,20]);
 x_label = '时间(s)';
 subplot(3, 1, 1);
@@ -64,259 +65,252 @@ plot(tspan, pred_omega_x_faultfree,'r-','linewidth',1.5);
 plot(tspan, actu_omega_x_faultfree,'b--','linewidth',1.5);
 legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
 set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+y_label = {'$\omega_x$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 2);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, pred_omega_y_faultfree,'r-','linewidth',1.5);
 plot(tspan, actu_omega_y_faultfree,'b--','linewidth',1.5);
-legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$\omega_y$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 3);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, pred_omega_z_faultfree,'r-','linewidth',1.5);
 plot(tspan, actu_omega_z_faultfree,'b--','linewidth',1.5);
-
-legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$\omega_z$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 % fault free error
 figure;
+box off;
 set(gcf,'unit','centimeters','position',[5,2,20,20]);
 subplot(3, 1, 1);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_x_faultfree,'r-','linewidth',1.5);
-
 legend('估计误差', 'fontname','SimSun', 'fontsize',18);
 set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+y_label = {'$res_x$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 2);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_y_faultfree,'r-','linewidth',1.5);
-
-legend('估计误差', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('估计误差', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$res_y$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 3);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_z_faultfree,'r-','linewidth',1.5);
-
-legend('估计误差', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('估计误差', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$res_z$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+
 
 %% f1
 % f1 pred and actual
 figure
+box off;
 set(gcf,'unit','centimeters','position',[5,2,20,20]);
 subplot(3, 1, 1);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, pred_omega_x_f1,'r-','linewidth',1.5);
 plot(tspan, actu_omega_x_f1,'b--','linewidth',1.5);
-
 legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
 set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+y_label = {'$\omega_x$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 2);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, pred_omega_y_f1,'r-','linewidth',1.5);
 plot(tspan, actu_omega_y_f1,'b--','linewidth',1.5);
-
-legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$\omega_y$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 3);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, pred_omega_z_f1,'r-','linewidth',1.5);
 plot(tspan, actu_omega_z_f1,'b--','linewidth',1.5);
-
-legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$\omega_z$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
+
 
 % f1 error
 figure;
+box off;
 set(gcf,'unit','centimeters','position',[5,2,20,20]);
 subplot(3, 1, 1);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_x_f1,'r-','linewidth',1.5);
-
 legend('估计误差', 'fontname','SimSun', 'fontsize',18);
 set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+y_label = {'$res_x$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 2);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_y_f1,'r-','linewidth',1.5);
-
-legend('估计误差', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('估计误差', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$res_y$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 3);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_z_f1,'r-','linewidth',1.5);
-
-legend('估计误差', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('估计误差', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$res_z$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 %% f2
 % f2 pred and actual
 figure
+box off;
 set(gcf,'unit','centimeters','position',[5,2,20,20]);
 subplot(3, 1, 1);
 hold on; box on;
 set(gca, 'FontSize', 14);
+set(gca, 'box', 'off'); % 关闭默认的四边框
+set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 plot(tspan, pred_omega_x_f2,'r-','linewidth',1.5);
 plot(tspan, actu_omega_x_f2,'b--','linewidth',1.5);
-
 legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
 set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+y_label = {'$\omega_x$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 2);
 hold on; box on;
 set(gca, 'FontSize', 14);
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 plot(tspan, pred_omega_y_f2,'r-','linewidth',1.5);
 plot(tspan, actu_omega_y_f2,'b--','linewidth',1.5);
-
-legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$\omega_y$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 3);
 hold on; box on;
 set(gca, 'FontSize', 14);
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 plot(tspan, pred_omega_z_f2,'r-','linewidth',1.5);
 plot(tspan, actu_omega_z_f2,'b--','linewidth',1.5);
-
-legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('网络估计','真实值', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$\omega_z$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 % f2 error
 figure;
+box off;
 set(gcf,'unit','centimeters','position',[5,2,20,20]);
 subplot(3, 1, 1);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_x_f2,'r-','linewidth',1.5);
-
 legend('估计误差', 'fontname','SimSun', 'fontsize',18);
 set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+y_label = {'$res_x$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
- 
+set(gca, 'box', 'off'); % 关闭默认的四边框
+set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 2);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_y_f2,'r-','linewidth',1.5);
-
-legend('估计误差', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('估计误差', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$res_y$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 subplot(3, 1, 3);
 hold on; box on;
 set(gca, 'FontSize', 14);
 plot(tspan, err_omega_z_f2,'r-','linewidth',1.5);
-
-legend('估计误差', 'fontname','SimSun', 'fontsize',18);
-set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
- 
-y_label = {'角速度(rad/s)'};
+% legend('估计误差', 'fontname','SimSun', 'fontsize',18);
+% set(legend,'Interpreter','latex','Orientation','horizontal','box','off');
+y_label = {'$res_z$(rad/s)'};
 xlabel(x_label,'fontname','SimSun','fontsize',18);
 ylabel(y_label,'fontname','SimSun','fontsize',18,'Interpreter','latex');
-
-
-
-
-
-
+set(gca, 'box', 'off'); % 关闭默认的四边框
+% set(legend, 'Interpreter', 'latex', 'Orientation', 'horizontal', 'Box', 'off');
 
 

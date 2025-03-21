@@ -517,6 +517,7 @@ class SunPointSatellite(Satellite):
         return reward
 
     def reset_sun_point_satellite(self):
+        self.update_se()
         self.state = np.concatenate([self.state[4:7].flatten(), self.se.flatten()[:2]], axis=0).flatten()
 
     def reset(self):

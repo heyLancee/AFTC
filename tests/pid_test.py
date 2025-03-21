@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import torch
 
-module_path = os.path.abspath('./')
+module_path = os.path.abspath('../')
 if module_path not in sys.path:
     sys.path.append(module_path)
 

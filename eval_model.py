@@ -33,7 +33,7 @@ def eval_policy(agent, dynamic_net, env_name, seed, path=None, client=None, is_p
     rewards = []
     states = []
     state, done = eval_env.reset(), False
-    state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
+    # state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
 
     while not done:
         if agent is not None:
@@ -43,18 +43,18 @@ def eval_policy(agent, dynamic_net, env_name, seed, path=None, client=None, is_p
         action = np.diag(agent_action) @ eval_env.u_max
         
         # dynamic net
-        net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
-        pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
+        # net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
+        # pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
 
         next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
         
-        pred_error = eval_env.omega.flatten() - pred.flatten()
+        # pred_error = eval_env.omega.flatten() - pred.flatten()
 
-        next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
+        # next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
         state = next_state
 
-        states.append(deepcopy(state))
-        states[-1][:3] = deepcopy(eval_env.omega.flatten())
+        states.append(state)
+        # states[-1][:3] = deepcopy(eval_env.omega.flatten())
         rewards.append(reward)
 
         # send telemetry data

@@ -34,15 +34,15 @@ if __name__ == "__main__":
 	parser.add_argument("--save_model", action="store_true", default=True)       # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
 	parser.add_argument("--fault_mode", default=-1)
-	parser.add_argument("--dyn_hidden_size", default=128, type=int)
+	parser.add_argument("--dyn_hidden_size", default="64,128", type=str)
 	parser.add_argument("--dyn_net_path", default="")
 	args = parser.parse_args()
 
-	# args.policy = "TD3"
-	# args.seed = 0
-	# args.env = "SunPointFaultSatellite"
-	# args.fault_mode = 1
-	# args.dyn_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
+	args.policy = "TD3"
+	args.seed = 0
+	args.env = "SunPointFaultSatellite"
+	args.fault_mode = 1
+	args.dyn_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
 
 	if args.dir != "":
 		file_name = f"{args.dir}/{args.policy}_{args.env}_{args.seed}"
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 	
 	state_dim = env.observation_space.shape[0]
 	# state_dim append with the vars related to dyanmic net
-	state_dim += td3.STATE_APPEND_NUM
+	# state_dim += td3.STATE_APPEND_NUM
 	action_dim = env.action_space.shape[0] 
 	max_action = float(env.action_space.high[0])
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 	state, done = env.reset(), False
 	if args.fault_mode != -1:
 		env.fault_mode = args.fault_mode
-	state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
+	# state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 
 	# Evaluate untrained policy
 	evaluations = [eval_policy(policy, dynamic_net, args.env, args.seed)]
@@ -146,17 +146,17 @@ if __name__ == "__main__":
 		torque = np.diag(action) @ env.u_max
 
 		# dynamic net
-		net_input = np.concatenate((env.omega.flatten(), (env.C@torque).flatten()))
-		pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
+		# net_input = np.concatenate((env.omega.flatten(), (env.C@torque).flatten()))
+		# pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
 
 		# Perform action
 		next_state, reward, done, _ = env.step(torque.reshape(-1, 1))
 		done_bool = float(done) if episode_timesteps < env._max_episode_steps else 0
 
-		pred_error = env.omega.flatten() - pred.flatten()
-		pred_errors.append(pred_error)
+		# pred_error = env.omega.flatten() - pred.flatten()
+		# pred_errors.append(pred_error)
 	
-		next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
+		# next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
 		
 		# Store data in replay buffer
 		replay_buffer.add(state, action, next_state, reward, done_bool)
@@ -173,7 +173,7 @@ if __name__ == "__main__":
 			print(f"Dir: {args.dir}, Total T: {t+1}, Episode Num: {episode_num+1}/{episode_total_num}, Episode T: {episode_timesteps}, Reward: {episode_reward:.3f}")
 			# Reset environment
 			state, done = env.reset(), False
-			state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
+			# state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 			episode_reward = 0
 			episode_timesteps = 0
 			episode_num += 1

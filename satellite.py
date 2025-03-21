@@ -477,11 +477,14 @@ class SunPointSatellite(Satellite):
         self.action_space = spaces.Box(-action, action, dtype=np.float32)
         self.observation_space = spaces.Box(-obs, obs, dtype=np.float32)
 
-        self.sd = config.sun_pointing.desired_vector
+        self.sd = config.sun_pointing.desired_vector.reshape(-1, 1)
         self.sd = self.sd / np.linalg.norm(self.sd)
-        self.si = config.orbit.sun_vector
+        self.si = config.orbit.sun_vector.reshape(-1, 1)
+        self.si = self.si / np.linalg.norm(self.si)
         self.sb = np.zeros((3, 1))
         self.se = np.zeros((3, 1))
+
+        self.Rd_sun_point, self.qd_sunpoint = self.compute_qd_in_sun_point(self.si, self.sd)
 
         self.theta_buffer = []
     
@@ -495,35 +498,73 @@ class SunPointSatellite(Satellite):
         theta = np.arccos(np.dot(self.sb.flatten(), self.sd.flatten()) / (np.linalg.norm(self.sb) * np.linalg.norm(self.sd)))
         self.theta_buffer.append(theta*180/np.pi)
 
+    def compute_qd_in_sun_point(self, si, sd):
+        sd[:2] = sd[:2] + np.random.normal(0, 0.01, (2, 1))
+        # 归一化 si 和 sd
+        si_norm = si / np.linalg.norm(si)
+        sd_norm = sd / np.linalg.norm(sd)
+
+        # 计算旋转轴 (si 和 sd 的叉积)
+        axis = np.cross(si_norm.flatten(), sd_norm.flatten())
+        axis = axis / np.linalg.norm(axis)  # 归一化旋转轴
+
+        # 计算旋转角度 (si 和 sd 的点积)
+        cos_theta = np.dot(si_norm.flatten(), sd_norm.flatten())
+        theta = np.arccos(cos_theta)  # 计算旋转角度
+
+        # 使用 Rodrigues' 公式计算旋转矩阵 R
+        I = np.eye(3)  # 单位矩阵
+        K = cross_matrix(axis)  # 旋转轴的反对称矩阵
+
+        # Rodrigues' 公式：R = I + sin(theta) * K + (1 - cos(theta)) * K^2
+        Rd = I + np.sin(theta) * K + (1 - np.cos(theta)) * np.dot(K, K)
+
+        # R 转 单位四元数
+        qd_correct = Rotation.from_matrix(Rd.T).as_quat()
+        qd = np.array([qd_correct[3], qd_correct[0], qd_correct[1], qd_correct[2]]).reshape(-1, 1)
+        qd = qd / np.linalg.norm(qd)
+
+        return Rd, qd
+
     def step_sun_point_satellite(self):
         self.update_se()
-        omegae = self.state[4:7]
-        self.state = np.concatenate([omegae.flatten(), self.se.flatten()[:2]], axis=0).flatten()
+        qe = get_q_e(self.qd_sunpoint, self.q)
+        self.state = np.concatenate([qe.flatten(), self.omega_e_buffer[-1]], axis=0).flatten()
+
+        # self.state = np.concatenate([omegae.flatten(), self.se.flatten()[:2]], axis=0).flatten()
         return self.state
 
     def step(self, torque):
         torque = torque.reshape(-1, 1)
         _, _, done, info = Satellite.step(self, torque)
         state = self.step_sun_point_satellite()
-        reward = SunPointSatellite.reward(self, self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
+        qev = self.state[1:4]
+        omegae = self.state[4:7]
+        reward = Satellite.reward(self, torque, qev, omegae)
+        # reward = SunPointSatellite.reward(self, self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
         return state, reward, done, info
 
-    def reward(self, f, omega_e, se):
-        reward_1 = 0
-        reward_2 = -8 * np.linalg.norm(f)
-        reward_3 = -10 * np.linalg.norm(se)
-        reward_4 = -20 * np.linalg.norm(omega_e)
-        reward = reward_1 + reward_2 + reward_3 + reward_4
-        return reward
+    # def reward(self, f, omega_e, se):
+    #     reward_1 = 0
+    #     reward_2 = -8 * np.linalg.norm(f)
+    #     reward_3 = -10 * np.linalg.norm(se)
+    #     reward_4 = -20 * np.linalg.norm(omega_e)
+    #     reward = reward_1 + reward_2 + reward_3 + reward_4
+    #     return reward
 
     def reset_sun_point_satellite(self):
         self.update_se()
-        self.state = np.concatenate([self.state[4:7].flatten(), self.se.flatten()[:2]], axis=0).flatten()
+        # self.state = np.concatenate([self.state[4:7].flatten(), self.se.flatten()[:2]], axis=0).flatten()
+        qe = get_q_e(self.qd_sunpoint, self.q)
+        omega_d = get_omega_d(self.t)
+        omega_e = get_omega_e(self.omega, omega_d, qe)
+        self.state = np.concatenate([qe.flatten(), omega_e.flatten()], axis=0).flatten()
+        return self.state
 
     def reset(self):
         Satellite.reset(self)
-        self.reset_sun_point_satellite()
-        return self.state
+        state = self.reset_sun_point_satellite()
+        return state
     
     def plot_sun_point_satellite(self):
         times = np.linspace(0, self.t_max, len(self.theta_buffer))
@@ -558,8 +599,12 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         u = torque + self.uf_buffer[-1].reshape(-1, 1)
         _, _, done, info = Satellite.step(self, u)
         state = SunPointSatellite.step_sun_point_satellite(self)
+        qev = self.state[1:4]
+        omegae = self.state[4:7]
+        reward = Satellite.reward(self, u, qev, omegae)
+
         # reward = SunPointFaultSatellite.reward(self, self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
-        reward = SunPointFaultSatellite.reward(self, self.torque_buffer, self.omega_e_buffer, self.theta_buffer)
+        # reward = SunPointFaultSatellite.reward(self, self.torque_buffer, self.omega_e_buffer, self.theta_buffer)
         return state, reward, done, info
 
     # def reward(self, f, omega_e, se):
@@ -570,36 +615,36 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
     #     reward = reward_1 + reward_2 + reward_3 + reward_4
     #     return reward
 
-    def reward(self, torque_buffer, omega_e_buffer, theta_buffer):
-        if len(torque_buffer) < 2 or len(omega_e_buffer) < 2 or len(theta_buffer) < 2:
-            return 0
-        torque = torque_buffer[-1]
-        torque_last = torque_buffer[-2]
-        omega_e = omega_e_buffer[-1]
-        omega_e_last = omega_e_buffer[-2]
-        theta = theta_buffer[-1]
-        theta_last = theta_buffer[-2]
+    # def reward(self, torque_buffer, omega_e_buffer, theta_buffer):
+    #     if len(torque_buffer) < 2 or len(omega_e_buffer) < 2 or len(theta_buffer) < 2:
+    #         return 0
+    #     torque = torque_buffer[-1]
+    #     torque_last = torque_buffer[-2]
+    #     omega_e = omega_e_buffer[-1]
+    #     omega_e_last = omega_e_buffer[-2]
+    #     theta = theta_buffer[-1]
+    #     theta_last = theta_buffer[-2]
 
-        if theta < theta_last:
-            theta_reward = 0.1
-        else:
-            theta_reward = -0.1
+    #     if theta < theta_last:
+    #         theta_reward = 0.1
+    #     else:
+    #         theta_reward = -0.1
 
-        if omega_e[2] < omega_e_last[2]:
-            omega_e_reward = 0.1
-        else:
-            omega_e_reward = -0.1
+    #     if omega_e[2] < omega_e_last[2]:
+    #         omega_e_reward = 0.1
+    #     else:
+    #         omega_e_reward = -0.1
 
-        torque_reward = -1 * np.linalg.norm(torque)
+    #     torque_reward = -1 * np.linalg.norm(torque)
         
-        reward = torque_reward + theta_reward + omega_e_reward
+    #     reward = torque_reward + theta_reward + omega_e_reward
         
-        return reward
+    #     return reward
     
     def reset(self):
         Satellite.reset(self)
         FaultSatellite.reset_fault_satellite(self)
-        SunPointSatellite.reset_sun_point_satellite(self)
+        self.state = SunPointSatellite.reset_sun_point_satellite(self)
         return self.state
     
     def plot(self):

@@ -47,10 +47,9 @@ class UdpClient:
         telemetry_data.q1 = env.q[1]
         telemetry_data.q2 = env.q[2]
         telemetry_data.q3 = env.q[3]
-        telemetry_data.zAngle = env.theta_buffer[-1]
+        telemetry_data.zAngle = env.theta * 180 / np.pi
         packet = self.package_manager.package(telemetry_data, CommuDataType.TELEMETRY)
-        packet_bytes = packet.encode('utf-8')
-        self.sock.sendto(packet_bytes, (self.host, self.port))
+        self.sock.sendto(packet, (self.host, self.port))
 
     def start_receiving(self):
         """启动数据接收线程"""
@@ -78,6 +77,7 @@ class UdpClient:
         while self.is_receiving:
             try:
                 data, addr = self.sock.recvfrom(buffer_size)
+                print(f"Received data from {addr}: {data}")
                 data = self.package_manager.unpackage(data)
 
                 if isinstance(data, FaultDataStruct):
@@ -92,6 +92,7 @@ class UdpClient:
         """处理故障参数数据"""
         try:
             print(f"Received fault parameters: {vars(data)}")
+            print(f"Fault params: {data.faultParams.params}")
             # 在这里添加你的故障参数处理逻辑
         except Exception as e:
             print(f"Error handling fault parameters: {e}")
@@ -112,26 +113,38 @@ class UdpClient:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 5:
-        print("Usage: python3 udp_client.py <Host> <Port> <T> <Ts> [LocalPort]")
-        sys.exit(1)
+    # if len(sys.argv) < 5:
+    #     print("Usage: python3 udp_client.py <Host> <Port> <T> <Ts> [LocalPort]")
+    #     sys.exit(1)
 
-    try:
-        host = sys.argv[1]
-        port = int(sys.argv[2])
-        T = float(sys.argv[3])
-        Ts = float(sys.argv[4])
-        local_port = int(sys.argv[5]) if len(sys.argv) > 5 else None
-        print(f"host: {host}, port: {port}, T: {T}, Ts: {Ts}, local_port: {local_port}")
-    except ValueError as e:
-        print(f"Invalid argument: {e}")
-        sys.exit(1)
+    # try:
+    #     host = sys.argv[1]
+    #     port = int(sys.argv[2])
+    #     T = float(sys.argv[3])
+    #     Ts = float(sys.argv[4])
+    #     local_port = int(sys.argv[5]) if len(sys.argv) > 5 else None
+    #     print(f"host: {host}, port: {port}, T: {T}, Ts: {Ts}, local_port: {local_port}")
+    # except ValueError as e:
+    #     print(f"Invalid argument: {e}")
+    #     sys.exit(1)
+
+    host = "192.168.233.129"
+    port = 1200
+    T = 60
+    Ts = 0.1
+    local_port = 5010
+
+    from satellite import SunPointFaultSatellite
+    from config import EnvConfig
+    config = EnvConfig()
+    env = SunPointFaultSatellite(config)
+    env.reset()
 
     client = UdpClient(host, port, T, Ts, local_port=local_port)
     if client.connect_to_server():
         client.start_receiving()  # 启动接收线程
         try:
-            client.send_data()
+            client.send_data(env)
             # 可以在这里添加主程序逻辑
             time.sleep(T)  # 运行T秒
         finally:

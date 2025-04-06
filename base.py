@@ -59,7 +59,7 @@ class TelemetryStruct:
 
     # 转换为字节数组
     def to_byte_array(self) -> bytes:
-        return struct.pack('<28d', 
+        return struct.pack('<25d', 
                            self.timeStep,
                            self.wx, self.wy, self.wz,
                            self.q0, self.q1, self.q2, self.q3,
@@ -246,4 +246,44 @@ class PackageManager:
             and package.startswith(self.header)
             and package.endswith(self.tail)
         )
+    
+
+if __name__ == "__main__":
+    import numpy as np
+
+    # 示例用法
+    package_manager = PackageManager()
+    package_manager.set_package_params("SSSSSSSS", "EEEEEEEE")
+
+    # 测试TelemetryStruct
+    telemetry_data = TelemetryStruct()
+    telemetry_data.timeStep = 1.0
+    telemetry_data.wx = np.random.rand()
+    telemetry_data.wy = np.random.rand()
+    telemetry_data.wz = np.random.rand()
+    telemetry_data.q0 = np.random.rand()
+    telemetry_data.q1 = np.random.rand()
+    telemetry_data.q2 = np.random.rand()
+    telemetry_data.q3 = np.random.rand()
+    telemetry_data.zAngle = np.random.rand()
+    telemetry_package = package_manager.package(telemetry_data, CommuDataType.TELEMETRY)
+    print(f"Telemetry Package: {telemetry_package}")
+    unpacked_telemetry = package_manager.unpackage(telemetry_package)
+    
+    if unpacked_telemetry:
+        # 打印十六进制
+        print(f"Unpacked Telemetry (Hex): {unpacked_telemetry.to_byte_array().hex()}")
+
+    # 测试FaultDataStruct
+    fault_params = FaultParams(FaultParams.FaultType.GYRO_INTERMITTENT_FAULT, [0.5])
+    fault_data = FaultDataStruct(1.0, 2.0, FaultParams.FaultType.GYRO_INTERMITTENT_FAULT, fault_params)
+    fault_package = package_manager.package(fault_data, CommuDataType.FAULT_PARA)
+    print(f"Fault Package: {fault_package}")
+    unpacked_fault = package_manager.unpackage(fault_package)
+
+    if unpacked_fault:
+        print(f"Unpacked Fault: {vars(unpacked_fault)}")
+        # 打印故障参数
+        print(f"Fault Type: {unpacked_fault.faultType.name}")
+        print(f"Fault Params: {unpacked_fault.faultParams.params}")
     

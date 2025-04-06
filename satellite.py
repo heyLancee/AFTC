@@ -406,6 +406,7 @@ class SunPointSatellite(Satellite):
         self.si = self.si / np.linalg.norm(self.si)
         self.sb = np.zeros((3, 1))
         self.se = np.zeros((3, 1))
+        self.theta = 0
 
         self.Rd_sun_point, self.qd_sunpoint = self.compute_qd_in_sun_point(self.si, self.sd)
 
@@ -418,8 +419,8 @@ class SunPointSatellite(Satellite):
         # sb也加个噪声
         # self.sb = self.s_noise.add_gaussian_noise(self.sb, need_normalize=True)
         self.se = np.cross(self.sb.flatten(), self.sd.flatten())
-        theta = np.arccos(np.dot(self.sb.flatten(), self.sd.flatten()) / (np.linalg.norm(self.sb) * np.linalg.norm(self.sd)))
-        self.theta_buffer.append(theta*180/np.pi)
+        self.theta = np.arccos(np.dot(self.sb.flatten(), self.sd.flatten()) / (np.linalg.norm(self.sb) * np.linalg.norm(self.sd)))
+        self.theta_buffer.append(self.theta*180/np.pi)
 
     def compute_qd_in_sun_point(self, si, sd):
         sd[:2] = sd[:2] + np.random.normal(0, 0.01, (2, 1))

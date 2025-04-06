@@ -10,30 +10,19 @@ from pyflywheel import FlyWheel
 from PyRealTime import RealTimeSimulation
 import sys
 from udp_client import UdpClient
-from base import TelemetryStruct
 from config import EnvConfig
-from copy import deepcopy
+from typing import Optional
 
 
-def eval_policy(agent, dynamic_net, env_name, seed, path=None, client=None, is_plot=False):
-    config = EnvConfig()
-
-    if env_name == "Satellite":
-        eval_env = Satellite(config)
-    elif env_name == "FaultSatellite":
-        eval_env = FaultSatellite(config)
-    elif env_name == "SunPointSatellite":
-        eval_env = SunPointSatellite(config)
-    elif env_name == "SunPointFaultSatellite":
-        eval_env = SunPointFaultSatellite(config)
-    else:
-        eval_env = gym.make(env_name)
+def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Satellite, seed:int,
+                path:Optional[str]=None, client:Optional[UdpClient]=None, is_plot:bool=False):
+    eval_env = env
     eval_env.seed(seed)
 
     rewards = []
     states = []
     state, done = eval_env.reset(), False
-    # state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
+    state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
 
     while not done:
         if agent is not None:
@@ -43,33 +32,21 @@ def eval_policy(agent, dynamic_net, env_name, seed, path=None, client=None, is_p
         action = np.diag(agent_action) @ eval_env.u_max
         
         # dynamic net
-        # net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
-        # pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
+        net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
+        pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
 
         next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
         
-        # pred_error = eval_env.omega.flatten() - pred.flatten()
+        pred_error = eval_env.omega.flatten() - pred.flatten()
 
-        # next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
+        next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
         state = next_state
 
         states.append(state)
-        # states[-1][:3] = deepcopy(eval_env.omega.flatten())
         rewards.append(reward)
 
-        # send telemetry data
-        if client is not None:
-            telemetry_data = TelemetryStruct()
-            telemetry_data.timeStep = eval_env.t
-            telemetry_data.wx = eval_env.omega[0] * 180 / np.pi
-            telemetry_data.wy = eval_env.omega[1] * 180 / np.pi
-            telemetry_data.wz = eval_env.omega[2] * 180 / np.pi
-            telemetry_data.q0 = eval_env.q[0]
-            telemetry_data.q1 = eval_env.q[1]
-            telemetry_data.q2 = eval_env.q[2]
-            telemetry_data.q3 = eval_env.q[3]
-            telemetry_data.zAngle = eval_env.theta_buffer[-1]
-            client.send_data(telemetry_data)
+        if client:
+            client.send_data(eval_env)
 
     states = np.array(states)
     rewards = np.array(rewards)
@@ -78,7 +55,7 @@ def eval_policy(agent, dynamic_net, env_name, seed, path=None, client=None, is_p
 
     print("reward: ", np.sum(rewards))
 
-    if path is not None:
+    if path:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
         df_uc = pd.DataFrame(actions, columns=[f'u_{i}' for i in range(len(actions[0]))])
         df = pd.concat([df, df_uc], axis=1)
@@ -213,16 +190,10 @@ if __name__ == "__main__":
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    policy_model_path = "2025-03-08_11-31-51_2\TD3_SunPointFaultSatellite_2"
+    policy_model_path = "u_max_008\TD3_SunPointFaultSatellite_0"
     save_path = "results/u_max_005/eval_res.csv"
 
     config = EnvConfig()
-
-    # client = UdpClient(config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
-    # if not client.connect_to_server():
-    #     print("Failed to connect to server")
-    #     sys.exit(1)
-
     if env_name == "Satellite":
         env = Satellite(config)
     elif env_name == "FaultSatellite":
@@ -234,11 +205,10 @@ if __name__ == "__main__":
     else:
         env = gym.make(env_name)
 
-    # Set seeds
-    # env.seed(seed)
-    # env.action_space.seed(seed)
-    # torch.manual_seed(seed)
-    # np.random.seed(seed)
+    client = UdpClient(env, config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
+    if not client.connect_to_server():
+        print("Failed to connect to server")
+        sys.exit(1)
 
     state_dim = env.observation_space.shape[0]
     state_dim += td3.STATE_APPEND_NUM
@@ -273,6 +243,6 @@ if __name__ == "__main__":
         dynamicNet.load_model(dynamic_net_path)
 
     # Evaluate untrained policy
-    reward = eval_policy(policy, dynamicNet, env_name, seed, path=None, client=None, is_plot=True)
+    reward = eval_policy(policy, dynamicNet, env, seed, path=None, client=None, is_plot=True)
     print("reward: ", reward)
     # client.close()

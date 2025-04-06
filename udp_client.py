@@ -1,5 +1,5 @@
 import socket
-import struct
+import numpy as np
 import time
 import sys
 from typing import Tuple
@@ -76,7 +76,18 @@ class UdpClient:
             print(f"Error creating/binding socket: {e}")
             return False
 
-    def send_data(self, telemetry_data: TelemetryStruct):
+    def send_data(self, env):
+        telemetry_data = TelemetryStruct()
+        telemetry_data.timeStep = env.t
+        telemetry_data.wx = env.omega[0] * 180 / np.pi
+        telemetry_data.wy = env.omega[1] * 180 / np.pi
+        telemetry_data.wz = env.omega[2] * 180 / np.pi
+        telemetry_data.q0 = env.q[0]
+        telemetry_data.q1 = env.q[1]
+        telemetry_data.q2 = env.q[2]
+        telemetry_data.q3 = env.q[3]
+        telemetry_data.zAngle = env.theta_buffer[-1]
+        client.send_data(telemetry_data)
         packet = self.package_manager.package(telemetry_data, CommuDataType.TELEMETRY.value)
         packet_bytes = packet.encode('utf-8')
         self.sock.sendto(packet_bytes, (self.host, self.port))

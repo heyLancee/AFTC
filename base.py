@@ -11,7 +11,7 @@ class CommuDataType(Enum):
 class TelemetryStruct:
     def __init__(self):
         self.timeStep : float = 0.0
-        self.wx : float = 0.0
+        self.wx : float = 0.0  # deg/s
         self.wy : float = 0.0
         self.wz : float = 0.0
         self.q0 : float = 0.0
@@ -34,8 +34,8 @@ class TelemetryStruct:
         self.tx : float = 0.0
         self.ty : float = 0.0
         self.tz : float = 0.0
-        self.zAngle : float = 0.0
-        self.torqueX : float = 0.0
+        self.zAngle : float = 0.0  # deg
+        self.torqueX : float = 0.0  # Nm
         self.torqueY : float = 0.0
         self.torqueZ : float = 0.0
 

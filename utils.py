@@ -63,6 +63,9 @@ class GyroscopeNoise:
 		
 		self.head_cnt = head_cnt
 		self.bg = np.zeros((self.head_cnt, 1))  # 单位：°/h
+          
+	def reset(self):
+		self.bg = np.zeros((self.head_cnt, 1))  # 单位：°/h
 	
 	def add_gyro_noise(self, value, dt):
 		if self.head_cnt != value.shape[0]:

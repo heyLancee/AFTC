@@ -97,10 +97,10 @@ class Orbit:
 class Satellite:
     def __init__(self, config: EnvConfig):
         if hasattr(self, 'is_init') and self.is_init:
-            self.logger.info("Already initialized, skipping initialization.")
+            self.logger.info("卫星环境已经初始化，无需再次初始化")
             return
 
-        self.is_init = False
+        self.is_init = True
         self.ts = config.simulation.ts
         self.t = 0
         self.t_max = config.simulation.t_max
@@ -148,8 +148,8 @@ class Satellite:
         torque = torque.reshape(-1, 1)
         # clip
         torque = np.clip(torque.flatten(), -self.u_max, self.u_max)
-        # for i in range(self.C.shape[1]):
-        #     torque[i] = self.flywheel_group[i].update(torque[i])
+        for i in range(self.C.shape[1]):
+            torque[i] = self.flywheel_group[i].update(torque[i])
 
         Bi = self.orbit.get_magnetic_field(self.t)*1e-6
         q_correct = np.array([self.q[1], self.q[2], self.q[3], self.q[0]])
@@ -167,15 +167,15 @@ class Satellite:
         Tm = np.cross(M_res.flatten(), Bb.flatten())
         
         # 合并环境力矩
-        # self.td = Tg.reshape(-1,1) + Tm.reshape(-1,1)
+        self.td = Tg.reshape(-1,1) + Tm.reshape(-1,1)
 
         u = (self.C @ torque).reshape(-1, 1)
         u = u + self.td.reshape(-1, 1)
 
         self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j+self.delta_j, u)
 
-        # self.q = self.q_noise.add_quaternion_noise(self.q)
-        # self.omega = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
+        self.q = self.q_noise.add_quaternion_noise(self.q)
+        self.omega = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
 
         omega_d = get_omega_d(self.t)
         qe = get_q_e(self.qd, self.q)
@@ -285,6 +285,8 @@ class Satellite:
         plt.show()
 
     def reset(self):
+        self.t = 0
+
         self.qd = np.array([[1], [0], [0], [0]])
         omega_d = get_omega_d(self.t)
         self.qd = np.random.random((4, 1))
@@ -304,6 +306,11 @@ class Satellite:
         self.u_buffer = []
         self.qe_buffer = []
         self.omega_e_buffer = []
+
+        for flywheel in self.flywheel_group:
+            flywheel.reset()
+
+        self.gyro_noise.reset()
 
         self.logger.info("quat init: %s", self.q)
         self.logger.info("omega init: %s", self.omega)
@@ -346,99 +353,15 @@ class FaultSatellite(Satellite):
         return Satellite.step(self, u)
 
     def fault_inject(self, t, fault_mode):
-        # clear
-        self.e1, self.e2, self.e3 = 0, 0, 0
-        self.b1, self.b2, self.b3 = 0, 0, 0
-        if t < 30:
-            pass
-        elif t < 60:
-            if fault_mode == 1:
-                self.e1 = 0.4
-                self.e2 = 0.3
-                self.e3 = 0.2
-                self.b1 = -0.003
-                self.b2 = 0
-                self.b3 = 0.004
-            elif fault_mode == 2:
-                self.e1 = 0.6
-                self.e2 = 0.1
-                self.e3 = 0.2
-                self.b1 = -0.005
-                self.b2 = 0.007
-                self.b3 = 0
-            elif fault_mode == 3:
-                self.e1 = 0.5
-                self.e2 = 0.2
-                self.e3 = 0.4
-                self.b1 = 0.003
-                self.b2 = -0.002
-                self.b3 = 0.001
-        elif t < 90:
-            if fault_mode == 1:
-                self.e1 = 0.4
-                self.e2 = 0.1
-                self.e3 = 0.2
-                self.b1 = 0.002
-                self.b2 = -0.001
-                self.b3 = 0.005
-            elif fault_mode == 2:
-                self.e1 = 0.7 * np.sin(0.5 * np.pi * t)
-                self.e2 = 0.2
-                self.e3 = 0.5 * np.sin(0.5 * np.pi * t)
-                self.b1 = 0.001
-                self.b2 = -0.003
-                self.b3 = -0.003
-            elif fault_mode == 3:
-                self.e1 = 0.6 
-                self.e2 = 0.3 * np.sin(0.4 * np.pi * t)
-                self.e3 = 0.4 * np.sin(0.4 * np.pi * t)
-                self.b1 = -0.002
-                self.b2 = 0.003
-                self.b3 = 0.002
-        elif t < 120:
-            if fault_mode == 1:
-                self.e1 = 0.7
-                self.e2 = 0.6
-                self.e3 = 0.4 + 0.1 * np.cos(0.5 * np.pi * t)
-                self.b1 = 0
-                self.b2 = 0.003
-                self.b3 = 0
-            elif fault_mode == 2:
-                self.e1 = 0.4 * np.sin(0.5 * np.pi * t)
-                self.e2 = 0.3
-                self.e3 = 0.3 + 0.1 * np.cos(0.5 * np.pi * t)
-                self.b1 = 0.003
-                self.b2 = 0
-                self.b3 = 0.001
-            elif fault_mode == 3:
-                self.e1 = 0.6
-                self.e2 = 0.4
-                self.e3 = 0.2 + 0.3 * np.cos(0.3 * np.pi * t)
-                self.b1 = 0.004
-                self.b2 = -0.003
-                self.b3 = 0.002
-        else:
-            if fault_mode == 1:
-                self.e1 = 0.5
-                self.e2 = 0.8
-                self.e3 = 0.6 + 0.1 * np.cos(0.5 * np.pi * t)
-                self.b1 = 0.001
-                self.b2 = -0.004
-                self.b3 = 0
-            elif fault_mode == 2:
-                self.e1 = 0.8
-                self.e2 = 0.7
-                self.e3 = 0.6
-                self.b1 = 0
-                self.b2 = 0.001
-                self.b3 = 0.003
-            elif fault_mode == 3:
-                self.e1 = 0.7
-                self.e2 = 0.5
-                self.e3 = 0.4
-                self.b1 = -0.003
-                self.b2 = 0.002
-                self.b3 = -0.004
+        if t < 50:
+            return
+        if fault_mode == 1:  # x轴部分失效故障
+            self.e1 = 0.5
+        elif fault_mode == 2:  # y轴偏置故障
+            self.b2 = 0.02
+        elif fault_mode == 3:  # z轴综合故障
+            self.e3 = 0.5
+            self.b3 = 0.02
 
     def plot_fault_satellite(self):
         times = np.linspace(0, self.t_max, len(self.uf_buffer))
@@ -530,8 +453,6 @@ class SunPointSatellite(Satellite):
         self.update_se()
         qe = get_q_e(self.qd_sunpoint, self.q)
         self.state = np.concatenate([qe.flatten(), self.omega_e_buffer[-1]], axis=0).flatten()
-
-        # self.state = np.concatenate([omegae.flatten(), self.se.flatten()[:2]], axis=0).flatten()
         return self.state
 
     def step(self, torque):
@@ -540,21 +461,15 @@ class SunPointSatellite(Satellite):
         state = self.step_sun_point_satellite()
         qev = self.state[1:4]
         omegae = self.state[4:7]
-        reward = Satellite.reward(self, torque, qev, omegae)
-        # reward = SunPointSatellite.reward(self, self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
+        reward = self.reward(torque, qev, omegae)
         return state, reward, done, info
 
-    # def reward(self, f, omega_e, se):
-    #     reward_1 = 0
-    #     reward_2 = -8 * np.linalg.norm(f)
-    #     reward_3 = -10 * np.linalg.norm(se)
-    #     reward_4 = -20 * np.linalg.norm(omega_e)
-    #     reward = reward_1 + reward_2 + reward_3 + reward_4
-    #     return reward
+    def reward(self, torque, qev, omegae):
+        reward = Satellite.reward(self, torque, qev, omegae)
+        return reward
 
     def reset_sun_point_satellite(self):
         self.update_se()
-        # self.state = np.concatenate([self.state[4:7].flatten(), self.se.flatten()[:2]], axis=0).flatten()
         qe = get_q_e(self.qd_sunpoint, self.q)
         omega_d = get_omega_d(self.t)
         omega_e = get_omega_e(self.omega, omega_d, qe)
@@ -601,45 +516,12 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         state = SunPointSatellite.step_sun_point_satellite(self)
         qev = self.state[1:4]
         omegae = self.state[4:7]
-        reward = Satellite.reward(self, u, qev, omegae)
-
-        # reward = SunPointFaultSatellite.reward(self, self.torque_buffer[-1], self.omega_e_buffer[-1], self.se)
-        # reward = SunPointFaultSatellite.reward(self, self.torque_buffer, self.omega_e_buffer, self.theta_buffer)
+        reward = self.reward(torque, qev, omegae)
         return state, reward, done, info
 
-    # def reward(self, f, omega_e, se):
-    #     reward_1 = 0
-    #     reward_2 = -10 * np.linalg.norm(f)
-    #     reward_3 = -5 * np.linalg.norm(se)
-    #     reward_4 = -40 * np.linalg.norm(omega_e)
-    #     reward = reward_1 + reward_2 + reward_3 + reward_4
-    #     return reward
-
-    # def reward(self, torque_buffer, omega_e_buffer, theta_buffer):
-    #     if len(torque_buffer) < 2 or len(omega_e_buffer) < 2 or len(theta_buffer) < 2:
-    #         return 0
-    #     torque = torque_buffer[-1]
-    #     torque_last = torque_buffer[-2]
-    #     omega_e = omega_e_buffer[-1]
-    #     omega_e_last = omega_e_buffer[-2]
-    #     theta = theta_buffer[-1]
-    #     theta_last = theta_buffer[-2]
-
-    #     if theta < theta_last:
-    #         theta_reward = 0.1
-    #     else:
-    #         theta_reward = -0.1
-
-    #     if omega_e[2] < omega_e_last[2]:
-    #         omega_e_reward = 0.1
-    #     else:
-    #         omega_e_reward = -0.1
-
-    #     torque_reward = -1 * np.linalg.norm(torque)
-        
-    #     reward = torque_reward + theta_reward + omega_e_reward
-        
-    #     return reward
+    def reward(self, torque, qev, omegae):
+        reward = Satellite.reward(self, torque, qev, omegae)
+        return reward
     
     def reset(self):
         Satellite.reset(self)
@@ -651,4 +533,3 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         self.plot_fault_satellite()
         self.plot_sun_point_satellite()
         return Satellite.plot(self)
-

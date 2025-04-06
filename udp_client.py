@@ -3,46 +3,7 @@ import numpy as np
 import time
 import sys
 from typing import Tuple
-from base import TelemetryStruct, CommuDataType, FaultParaStruct
-
-
-class PackageManager:
-    _instance = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(PackageManager, cls).__new__(cls)
-            cls._instance.header = ""
-            cls._instance.tail = ""
-        return cls._instance
-    
-    def set_package_params(self, header: str, tail: str):
-        self.header = header
-        self.tail = tail
-    
-    def package(self, data: str, identifier: int) -> str:
-        return f"{self.header}{chr(identifier)}{data}{self.tail}"
-    
-    def unpackage(self, package: str) -> Tuple[str, int]:
-        data_type = None
-        if not self.validate_package(package, data_type):
-            return "", None
-        
-        data_start = len(self.header) + 1  # Header length + identifier length
-        data_end = len(package) - len(self.tail)
-        
-        return package[data_start:data_end], data_type
-    
-    def validate_package(self, package: str, data_type: int) -> bool:
-        min_length = len(self.header) + 1 + len(self.tail)
-        if len(package) < min_length:
-            return False
-        
-        if not (package.startswith(self.header) and package.endswith(self.tail)):
-            return False
-        
-        data_type = ord(package[len(self.header)])
-        return True
+from base import TelemetryStruct, CommuDataType, FaultDataStruct, PackageManager
 
 
 class UdpClient:
@@ -87,8 +48,7 @@ class UdpClient:
         telemetry_data.q2 = env.q[2]
         telemetry_data.q3 = env.q[3]
         telemetry_data.zAngle = env.theta_buffer[-1]
-        client.send_data(telemetry_data)
-        packet = self.package_manager.package(telemetry_data, CommuDataType.TELEMETRY.value)
+        packet = self.package_manager.package(telemetry_data, CommuDataType.TELEMETRY)
         packet_bytes = packet.encode('utf-8')
         self.sock.sendto(packet_bytes, (self.host, self.port))
 
@@ -118,28 +78,20 @@ class UdpClient:
         while self.is_receiving:
             try:
                 data, addr = self.sock.recvfrom(buffer_size)
-                data_str = data.decode('utf-8')
-                data_content, data_type = self.package_manager.unpackage(data_str)
-                
-                if data_type is None:
-                    continue
+                data = self.package_manager.unpackage(data)
 
-                if data_type == CommuDataType.FAULT_PARA.value:
-                    self._handle_fault_para(data_content)
-                elif data_type == CommuDataType.SAVE_DATA.value:
-                    self._handle_save_data(data_content)
-
+                if isinstance(data, FaultDataStruct):
+                    self._handle_fault_para(data)
             except socket.timeout:
                 continue
             except Exception as e:
                 print(f"Error receiving data: {e}")
                 continue
 
-    def _handle_fault_para(self, data):
+    def _handle_fault_para(self, data: FaultDataStruct):
         """处理故障参数数据"""
         try:
-            fault_para = FaultParaStruct.from_byte_array(data)
-            print(f"Received fault parameters: {vars(fault_para)}")
+            print(f"Received fault parameters: {vars(data)}")
             # 在这里添加你的故障参数处理逻辑
         except Exception as e:
             print(f"Error handling fault parameters: {e}")

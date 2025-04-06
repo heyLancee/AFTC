@@ -1,8 +1,9 @@
 import struct
-from enum import Enum
+from enum import IntEnum
+from typing import Union, List, Dict
 
 # 定义枚举类型
-class CommuDataType(Enum):
+class CommuDataType(IntEnum):
     TELEMETRY = 1
     FAULT_RESULT = 2
     FAULT_PARA = 3
@@ -31,21 +32,19 @@ class TelemetryStruct:
         self.qbo1 : float = 0.0
         self.qbo2 : float = 0.0
         self.qbo3 : float = 0.0
-        self.tx : float = 0.0
+        self.tx : float = 0.0   # Nm
         self.ty : float = 0.0
         self.tz : float = 0.0
         self.zAngle : float = 0.0  # deg
-        self.torqueX : float = 0.0  # Nm
-        self.torqueY : float = 0.0
-        self.torqueZ : float = 0.0
 
     # 从字节数据中恢复数据
     @staticmethod
     def from_byte_array(data):
-        if len(data) < 224:
+        # 计算所有成员变量数量
+        if len(data) != 25*8:
             return None
         
-        values = struct.unpack('<28d', data[:224])  # 28个double类型数据
+        values = struct.unpack('<25d', data[:25*8])
         obj = TelemetryStruct()
         obj.timeStep = values[0]
         obj.wx, obj.wy, obj.wz = values[1:4]
@@ -55,12 +54,11 @@ class TelemetryStruct:
         obj.wboX, obj.wboY, obj.wboZ = values[14:17]
         obj.qbo0, obj.qbo1, obj.qbo2, obj.qbo3 = values[17:21]
         obj.tx, obj.ty, obj.tz = values[21:24]
-        obj.zAngle = values[23]
-        obj.torqueX, obj.torqueY, obj.torqueZ = values[24:27]
+        obj.zAngle = values[24]
         return obj
 
     # 转换为字节数组
-    def to_byte_array(self):
+    def to_byte_array(self) -> bytes:
         return struct.pack('<28d', 
                            self.timeStep,
                            self.wx, self.wy, self.wz,
@@ -70,80 +68,182 @@ class TelemetryStruct:
                            self.wboX, self.wboY, self.wboZ,
                            self.qbo0, self.qbo1, self.qbo2, self.qbo3,
                            self.tx, self.ty, self.tz,
-                           self.zAngle,
-                           self.torqueX, self.torqueY, self.torqueZ)
+                           self.zAngle)
 
-class FaultParaStruct:
-    def __init__(self):
-        self.faultTimeLow = 0.0
-        self.faultAttLow = 0.0
-        self.faultTimeUp = 0.0
-        self.faultAttUp = 0.0
-        self.faultType = 0
-        self.gyroGroup = 0
-        self.gyroID = 0
-        self.runMode = 0
+class FaultParams:
+    
+    class FaultType(IntEnum):
+        """故障类型枚举（嵌套在FaultParams类中）"""
+        NO_FAULT = 0                    # 无故障
+        GYRO_INTERMITTENT_FAULT = 1     # 陀螺间歇故障
+        GYRO_SLOW_FAULT = 2             # 陀螺缓变故障
+        GYRO_MULTI_FAULT = 3            # 陀螺乘性故障
+        FLYWHEEL_PARTIAL_LOSS = 4       # 飞轮部分失效
+        FLYWHEEL_BIAS = 5               # 飞轮偏置故障
+        FLYWHEEL_COMPREHENSIVE = 6      # 飞轮综合故障
 
-    def to_byte_array(self):
-        return struct.pack('<8f', 
-                           self.faultTimeLow, self.faultAttLow,
-                           self.faultTimeUp, self.faultAttUp,
-                           self.faultType,
-                           self.gyroGroup, self.gyroID, self.runMode)
+    # 类常量：每种故障类型对应的参数数量
+    _PARAM_COUNTS: Dict['FaultParams.FaultType', int] = {
+        FaultType.NO_FAULT: 1,
+        FaultType.GYRO_INTERMITTENT_FAULT: 1,
+        FaultType.GYRO_SLOW_FAULT: 2,
+        FaultType.GYRO_MULTI_FAULT: 1,
+        FaultType.FLYWHEEL_PARTIAL_LOSS: 1,
+        FaultType.FLYWHEEL_BIAS: 1,
+        FaultType.FLYWHEEL_COMPREHENSIVE: 2
+    }
 
-    @staticmethod
-    def from_byte_array(data):
-        """从字节数组中解析数据"""
-        if len(data) < 32:  # 8个float，每个4字节
+    def __init__(self, fault_type: FaultType, params: List[float]):
+        self.fault_type:FaultParams.FaultType = fault_type
+        self.params:List[float] = params
+        
+        # 初始化所有可能的参数为0.0
+        self.f1: float = 0.0          # 间歇故障系数
+        self.lambda_s: float = 0.0     # 慢变系数
+        self.k_s: float = 0.0          # 慢变指数
+        self.lambda_m: float = 0.0     # 乘性系数
+        self.e: float = 0.0            # 部分失效系数
+        self.b: float = 0.0            # 偏置系数
+        
+        self._validate_and_assign_params()
+
+    def _validate_and_assign_params(self):
+        """验证参数并赋值给对应属性"""
+        expected_count = self._get_expected_param_count(self.fault_type)
+        num_params = len(self.params)
+        if num_params != expected_count:
+            raise ValueError(f"Expected {expected_count} parameters for fault type {self.fault_type.name}, but got {num_params}")
+        
+        if self.fault_type == self.FaultType.NO_FAULT:
+            pass
+        elif self.fault_type == self.FaultType.GYRO_INTERMITTENT_FAULT:
+            self.f1 = self.params[0]
+        elif self.fault_type == self.FaultType.GYRO_SLOW_FAULT:
+            self.lambda_s, self.k_s = self.params[0], self.params[1]
+        elif self.fault_type == self.FaultType.GYRO_MULTI_FAULT:
+            self.lambda_m = self.params[0]
+        elif self.fault_type == self.FaultType.FLYWHEEL_PARTIAL_LOSS:
+            self.e = self.params[0]
+        elif self.fault_type == self.FaultType.FLYWHEEL_BIAS:
+            self.b = self.params[0]
+        elif self.fault_type == self.FaultType.FLYWHEEL_COMPREHENSIVE:
+            self.e, self.b = self.params[0], self.params[1]
+
+    def to_bytes(self) -> bytes:
+        try:
+            return struct.pack(f'<{len(self.params)}d', *self.params)
+        except struct.error as e:
+            raise ValueError(f"Parameter serialization failed: {e}") from e
+
+    @classmethod
+    def from_bytes(cls, data: bytes, fault_type: FaultType) -> 'FaultParams':
+        """从字节反序列化"""
+        num_params = cls._get_expected_param_count(fault_type)
+        if len(data) != num_params * 8:  # 每个double占8字节
+            raise ValueError(f"Invalid data length for {fault_type.name}")
+            
+        params = list(struct.unpack(f'<{num_params}d', data))
+        return cls(fault_type, params)
+
+    @classmethod
+    def _get_expected_param_count(cls, fault_type: FaultType) -> int:
+        """根据故障类型获取预期的参数数量"""
+        return cls._PARAM_COUNTS.get(fault_type, 0)
+
+
+class FaultDataStruct:
+    def __init__(self, faultStartTime: float, faultEndTime: float, 
+                faultType: FaultParams.FaultType, faultParams: FaultParams):
+        self.faultStartTime: float = faultStartTime
+        self.faultEndTime: float = faultEndTime
+        self.faultType: FaultParams.Type = faultType
+        self.faultParams: FaultParams = faultParams
+
+    def to_byte_array(self) -> bytes:
+        """序列化为字节数组"""
+        fault_param_bytes = self.faultParams.to_bytes()
+        return struct.pack('<2fI',
+                         self.faultStartTime,
+                         self.faultEndTime,
+                         self.faultType.value) + fault_param_bytes
+
+    @classmethod
+    def from_byte_array(cls, data: bytes) -> 'FaultDataStruct':
+        """从字节数组反序列化"""
+        if len(data) < 12:  # 2个float + 1个int = 12字节
+            raise ValueError("Data too short")
+            
+        start_time, end_time, fault_type_val = struct.unpack('<2fI', data[:12])
+        fault_type = FaultParams.FaultType(fault_type_val)
+              
+        return cls(start_time, end_time, fault_type, 
+                    FaultParams.from_bytes(data[12:], fault_type))
+
+class PackageManager:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.header = b""
+            cls._instance.tail = b""
+        return cls._instance
+    
+    def set_package_params(self, header: str, tail: str) -> None:
+        """设置数据包头尾标识"""
+        self.header = header.encode('utf-8')
+        self.tail = tail.encode('utf-8')
+    
+    def package(self, data: Union[TelemetryStruct, FaultDataStruct], commu_type: CommuDataType) -> bytes:
+        """封装数据包：header + type + data + tail"""
+        data_bytes = data.to_byte_array()
+        return (
+            self.header +
+            struct.pack('<I', commu_type.value) +
+            data_bytes +
+            self.tail
+        )
+    
+    def unpackage(self, package: bytes) -> Union[TelemetryStruct, FaultDataStruct, None]:
+        """解包数据包"""
+        if not self._validate_package(package):
             return None
         
-        values = struct.unpack('<8f', data[:32])
-        obj = FaultParaStruct()
-        obj.faultTimeLow = values[0]
-        obj.faultAttLow = values[1]
-        obj.faultTimeUp = values[2]
-        obj.faultAttUp = values[3]
-        obj.faultType = values[4]
-        obj.gyroGroup = values[5]
-        obj.gyroID = values[6]
-        obj.runMode = values[7]
-        return obj
+        try:
+            # 计算各部分位置
+            header_len = len(self.header)
+            tail_len = len(self.tail)
+            type_start = header_len
+            type_end = type_start + 4  # I占4字节
+            data_start = type_end
+            data_end = len(package) - tail_len
 
-# 包管理类
-class PackageManager:
-    def __init__(self):
-        self.header = ""
-        self.tail = ""
-
-    def set_package_params(self, header, tail):
-        self.header = header
-        self.tail = tail
-
-    def package(self, data, identifier: CommuDataType):
-        package = self.header
-        package += struct.pack('<B', identifier.value)  # 以字节形式添加标识符
-        package += data.encode('utf-8')
-        package += self.tail
-        return package
-
-    def unpackage(self, package):
-        if not self.validate_package(package):
-            return None, None
-        
-        data_start = len(self.header) + 1
-        data_end = len(package) - len(self.tail)
-        
-        data = package[data_start:data_end].decode('utf-8')
-        data_type = CommuDataType(package[len(self.header)])
-        return data, data_type
-
-    def validate_package(self, package):
-        min_length = len(self.header) + 1 + len(self.tail)
-        if len(package) < min_length:
-            return False
-        
-        if package[:len(self.header)] != self.header or package[-len(self.tail):] != self.tail:
-            return False
-        
-        return True
-
+            if data_end <= data_start:
+                return None
+            
+            # 解包类型
+            type_value = struct.unpack_from('<I', package, type_start)[0]
+            commu_type = CommuDataType(type_value)
+            
+            # 提取数据部分
+            data = package[data_start:data_end]
+            
+            # 根据类型返回不同对象
+            if commu_type == CommuDataType.TELEMETRY:
+                return TelemetryStruct.from_byte_array(data)
+            elif commu_type == CommuDataType.FAULT_PARA:
+                return FaultDataStruct.from_byte_array(data)
+            else:
+                return None
+                
+        except (struct.error, ValueError):
+            return None
+    
+    def _validate_package(self, package: bytes) -> bool:
+        """验证数据包格式"""
+        return (
+            len(package) >= len(self.header) + 4 + len(self.tail)  # 最小长度: header + type(I) + tail
+            and package.startswith(self.header)
+            and package.endswith(self.tail)
+        )
+    

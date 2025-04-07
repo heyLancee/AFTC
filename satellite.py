@@ -213,12 +213,15 @@ class Satellite:
     
     def plot(self):
         qe_buffer = np.array(self.qe_buffer)
+        qe_buffer = qe_buffer[:-1, :]
         omega_e_buffer = np.array(self.omega_e_buffer) * 180 / np.pi
+        omega_e_buffer = omega_e_buffer[:-1, :]
         torque_buffer = np.array(self.torque_buffer)
         u_buffer = np.array(self.u_buffer)
         q_buffer = np.array(self.q_buffer)
+        q_buffer = q_buffer[:-1, :]
         omega_buffer = np.array(self.omega_buffer) * 180 / np.pi
-        
+        omega_buffer = omega_buffer[:-1, :]
         times = np.linspace(0, self.t_max, len(qe_buffer))
 
         # qe_buffer
@@ -301,12 +304,12 @@ class Satellite:
 
         self.td = np.zeros((3, 1))
         self.t = 0
-        self.q_buffer = []
-        self.omega_buffer = []
+        self.q_buffer = [self.q.flatten()]
+        self.omega_buffer = [self.omega.flatten()]
         self.torque_buffer = []
         self.u_buffer = []
-        self.qe_buffer = []
-        self.omega_e_buffer = []
+        self.qe_buffer = [qe.flatten()]
+        self.omega_e_buffer = [omega_e.flatten()]
 
         for flywheel in self.flywheel_group:
             flywheel.reset()
@@ -489,9 +492,10 @@ class SunPointSatellite(Satellite):
         self.se = np.zeros((3, 1))
         self.theta = 0
 
-        self.Rd_sun_point, self.qd_sunpoint = self.compute_qd_in_sun_point(self.si, self.sd)
+        self.rd_sun_point, self.qd_sunpoint = self.compute_qd_in_sun_point(self.si, self.sd)
 
         self.theta_buffer = []
+        self.se_buffer = []
     
     def update_se(self):
         q_correct = np.array([self.q[1], self.q[2], self.q[3], self.q[0]])
@@ -502,6 +506,7 @@ class SunPointSatellite(Satellite):
         self.se = np.cross(self.sb.flatten(), self.sd.flatten())
         self.theta = np.arccos(np.dot(self.sb.flatten(), self.sd.flatten()) / (np.linalg.norm(self.sb) * np.linalg.norm(self.sd)))
         self.theta_buffer.append(self.theta*180/np.pi)
+        self.se_buffer.append(self.se)
 
     def compute_qd_in_sun_point(self, si, sd):
         sd[:2] = sd[:2] + np.random.normal(0, 0.01, (2, 1))
@@ -533,8 +538,8 @@ class SunPointSatellite(Satellite):
 
     def step_sun_point_satellite(self):
         self.update_se()
-        qe = get_q_e(self.qd_sunpoint, self.q)
-        self.state = np.concatenate([qe.flatten(), self.omega_e_buffer[-1]], axis=0).flatten()
+        qse = get_q_e(self.qd_sunpoint, self.q)
+        self.state = np.concatenate([qse.flatten(), self.omega_e_buffer[-1]], axis=0).flatten()
         return self.state
 
     def step(self, torque):
@@ -551,11 +556,13 @@ class SunPointSatellite(Satellite):
         return reward
 
     def reset_sun_point_satellite(self):
+        self.theta_buffer = []
+        self.se_buffer = []
         self.update_se()
-        qe = get_q_e(self.qd_sunpoint, self.q)
+        qse = get_q_e(self.qd_sunpoint, self.q)
         omega_d = get_omega_d(self.t)
-        omega_e = get_omega_e(self.omega, omega_d, qe)
-        self.state = np.concatenate([qe.flatten(), omega_e.flatten()], axis=0).flatten()
+        omega_e = get_omega_e(self.omega, omega_d, qse)
+        self.state = np.concatenate([qse.flatten(), omega_e.flatten()], axis=0).flatten()
         return self.state
 
     def reset(self):
@@ -567,7 +574,7 @@ class SunPointSatellite(Satellite):
         times = np.linspace(0, self.t_max, len(self.theta_buffer))
         theta_buffer = np.array(self.theta_buffer)
 
-        # 绘制se
+        # 绘制theta
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
         ax.plot(times, theta_buffer, label='theta')

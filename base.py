@@ -42,7 +42,7 @@ class TelemetryStruct:
     def from_byte_array(data):
         # 计算所有成员变量数量
         if len(data) != 25*8:
-            return None
+            raise ValueError("data length is not 25*8")
         
         values = struct.unpack('<25d', data[:25*8])
         obj = TelemetryStruct()
@@ -111,6 +111,8 @@ class FaultParams:
         self.gyro_fault_idx: int = 0   # 陀螺故障索引
         self.flywheel_fault_idx: int = 0  # 飞轮故障索引
 
+        self._validate_and_assign_params()
+
     def _validate_and_assign_params(self):
         """验证参数并赋值给对应属性"""
         expected_count = self._get_expected_param_count(self.fault_type)
@@ -172,13 +174,17 @@ class FaultParams:
         data_params = data[16:]
         num_params = cls._get_expected_param_count(fault_type)
         if len(data_params) != num_params * 8:  # 每个double占8字节
-            raise ValueError(f"Invalid data length for {fault_type.name}")
+            raise ValueError(f"Invalid fault params length for {fault_type.name}")
             
         params = list(struct.unpack(f'<{num_params}d', data_params))
+        params = [p for p in params if p is not None]
         ret = cls(fault_type, params)
     
         ret.fault_start_time = start_time
         ret.fault_end_time = end_time
+        if ret.fault_end_time < ret.fault_start_time:
+            raise ValueError(f"Fault end time {ret.fault_end_time}s less than fault start time {ret.fault_start_time}s")
+        
         if (
             fault_type == FaultParams.FaultType.GYRO_INTERMITTENT_FAULT or
             fault_type == FaultParams.FaultType.GYRO_SLOW_FAULT or
@@ -191,7 +197,6 @@ class FaultParams:
             fault_type == FaultParams.FaultType.FLYWHEEL_COMPREHENSIVE
         ):
             ret.flywheel_fault_idx = fault_component_id
-        ret._validate_and_assign_params()
 
         return ret
     
@@ -253,7 +258,8 @@ class PackageManager:
             else:
                 return None
                 
-        except (struct.error, ValueError):
+        except (struct.error, ValueError) as e:
+            print(f"Error unpacking package: {e}")
             return None
     
     def _validate_package(self, package: bytes) -> bool:

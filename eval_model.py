@@ -24,6 +24,9 @@ def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Sat
     state, done = eval_env.reset(), False
     state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
 
+    print("等待故障注入")
+    time.sleep(10)
+
     while not done:
         if agent is not None:
             agent_action = agent.select_action(np.array(state))
@@ -205,10 +208,11 @@ if __name__ == "__main__":
     else:
         env = gym.make(env_name)
 
-    # client = UdpClient(env, config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
-    # if not client.connect_to_server():
-    #     print("Failed to connect to server")
-    #     sys.exit(1)
+    client = UdpClient(config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
+    if not client.connect_to_server():
+        print("Failed to connect to server")
+        sys.exit(1)
+    client.start_receiving(env)
 
     state_dim = env.observation_space.shape[0]
     state_dim += td3.STATE_APPEND_NUM

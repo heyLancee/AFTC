@@ -1,9 +1,22 @@
 {
+    "comments": {
+        "0": "无故障",
+        "1": "陀螺间歇故障",
+        "2": "陀螺缓变故障",
+        "3": "陀螺乘性故障",
+        "4": "反作用轮部分失效故障",
+        "5": "反作用轮偏置故障",
+        "6": "反作用轮综合故障"
+    },
     "simulation": {
         "t_max": 200,
         "ts": 0.1,
         "fault_mode": 0,
-        "fault_params": [0.0]
+        "fault_params": [0.0],
+        "fault_start_time": 50,
+        "fault_end_time": 100,
+        "gyro_fault_idx": 1,
+        "flywheel_fault_idx": 1
     },
     "orbit": {
         "constants": {
@@ -92,7 +105,7 @@
     "udp": {
         "host": "127.0.0.1",
         "port": 1200,
-        "local_port": 1201,
+        "local_port": 5010,
         "header": "SSSSSSSS",
         "tail": "EEEEEEEE"
     }

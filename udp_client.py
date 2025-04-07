@@ -6,11 +6,9 @@ from satellite import FaultSatellite
 
 
 class UdpClient:
-    def __init__(self, host, port, T=10, Ts=0.1, header="SSSSSSSS", tail="EEEEEEEE", local_port=None):
+    def __init__(self, host, port, header="SSSSSSSS", tail="EEEEEEEE", local_port=None):
         self.host = host
         self.port = port
-        self.T = T
-        self.Ts = Ts
         self.header = header
         self.tail = tail
         self.local_port = local_port  # 添加本地端口参数
@@ -50,7 +48,7 @@ class UdpClient:
         packet = self.package_manager.package(telemetry_data, CommuDataType.TELEMETRY)
         self.sock.sendto(packet, (self.host, self.port))
 
-    def start_receiving(self):
+    def start_receiving(self, env):
         """启动数据接收线程"""
         import threading
         self.is_receiving = True
@@ -91,7 +89,14 @@ class UdpClient:
         """处理故障参数数据"""
         try:
             print(f"Received fault parameters: {vars(data)}")
-            print(f"Fault params: {data.faultParams.params}")
+            print(f"Fault params: {data.params}")
+            
+            env.fault_mode = data.fault_type
+            env.fault_params = data.params
+            env.fault_start_time = data.fault_start_time
+            env.fault_end_time = data.fault_end_time
+            env.flywheel_fault_idx = data.flywheel_fault_idx
+            
             # 在这里添加你的故障参数处理逻辑
         except Exception as e:
             print(f"Error handling fault parameters: {e}")
@@ -113,24 +118,20 @@ class UdpClient:
 
 if __name__ == "__main__":
     # if len(sys.argv) < 5:
-    #     print("Usage: python3 udp_client.py <Host> <Port> <T> <Ts> [LocalPort]")
+    #     print("Usage: python3 udp_client.py <Host> <Port> [LocalPort]")
     #     sys.exit(1)
 
     # try:
     #     host = sys.argv[1]
     #     port = int(sys.argv[2])
-    #     T = float(sys.argv[3])
-    #     Ts = float(sys.argv[4])
-    #     local_port = int(sys.argv[5]) if len(sys.argv) > 5 else None
-    #     print(f"host: {host}, port: {port}, T: {T}, Ts: {Ts}, local_port: {local_port}")
+    #     local_port = int(sys.argv[3]) if len(sys.argv) > 3 else None
+    #     print(f"host: {host}, port: {port}, local_port: {local_port}")
     # except ValueError as e:
     #     print(f"Invalid argument: {e}")
     #     sys.exit(1)
 
     host = "192.168.233.129"
     port = 1200
-    T = 60
-    Ts = 0.1
     local_port = 5010
 
     from satellite import SunPointFaultSatellite
@@ -139,13 +140,13 @@ if __name__ == "__main__":
     env = SunPointFaultSatellite(config)
     env.reset()
 
-    client = UdpClient(host, port, T, Ts, local_port=local_port)
+    client = UdpClient(host, port, local_port=local_port)
     if client.connect_to_server():
         client.start_receiving()  # 启动接收线程
         try:
             client.send_data(env)
             # 可以在这里添加主程序逻辑
-            time.sleep(T)  # 运行T秒
+            time.sleep(60)  # 运行T秒
         finally:
             client.close()
     else:

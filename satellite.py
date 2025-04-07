@@ -329,13 +329,24 @@ class FaultSatellite(Satellite):
         # 执行器故障相关
         self.fault_mode:FaultParams.FaultType = config.simulation.fault_mode
         self.fault_params: List[float] = config.simulation.fault_params
+        self.fault_start_time: float = config.simulation.fault_start_time
+        self.fault_end_time: float = config.simulation.fault_end_time
+        self.flywheel_fault_idx: int = config.simulation.flywheel_fault_idx
+        self.gyro_fault_idx: int = config.simulation.gyro_fault_idx
 
     # fault_data是向外部提供的故障配置参数
     def update_u_f(self, torque, fault_data:Optional[FaultParams]=None):
         if fault_data is None:
             fault_data = FaultParams(self.fault_mode, self.fault_params)
+            fault_data.fault_start_time = self.fault_start_time
+            fault_data.fault_end_time = self.fault_end_time
+            fault_data.flywheel_fault_idx = self.flywheel_fault_idx
         else:
             self.fault_mode = fault_data.fault_type
+            self.fault_params = fault_data.params
+            self.fault_start_time = fault_data.fault_start_time
+            self.fault_end_time = fault_data.fault_end_time
+            self.flywheel_fault_idx = fault_data.flywheel_fault_idx
         u, u_f = self.fault_inject(self.t, torque, fault_data)
         u = np.clip(u.flatten(), -self.u_max, self.u_max).reshape(-1, 1)
         u_f = u - torque
@@ -345,8 +356,15 @@ class FaultSatellite(Satellite):
     def update_omega_f(self, omega, fault_data:Optional[FaultParams]=None):
         if fault_data is None:
             fault_data = FaultParams(self.fault_mode, self.fault_params)
+            fault_data.fault_start_time = self.fault_start_time
+            fault_data.fault_end_time = self.fault_end_time
+            fault_data.gyro_fault_idx = self.gyro_fault_idx
         else:
             self.fault_mode = fault_data.fault_type
+            self.fault_params = fault_data.params
+            self.fault_start_time = fault_data.fault_start_time
+            self.fault_end_time = fault_data.fault_end_time
+            self.gyro_fault_idx = fault_data.gyro_fault_idx
         omega, _ = self.fault_inject(self.t, omega, fault_data)
         return omega
 
@@ -368,15 +386,15 @@ class FaultSatellite(Satellite):
         ):
             if t > fault_data.fault_end_time:
                 return (data, np.zeros((3, 1)))
-            e1, e2, e3 = 0
-            b1, b2, b3 = 0
-            if fault_data.gyro_fault_idx == 0:
+            e1 = e2 = e3 = 0
+            b1 = b2 = b3 = 0
+            if fault_data.flywheel_fault_idx == 1:
                 e1 = fault_data.e
                 b1 = fault_data.b
-            elif fault_data.gyro_fault_idx == 1:
+            elif fault_data.flywheel_fault_idx == 2:
                 e2 = fault_data.e
                 b2 = fault_data.b
-            elif fault_data.gyro_fault_idx == 2:
+            elif fault_data.flywheel_fault_idx == 3:
                 e3 = fault_data.e
                 b3 = fault_data.b
             E = np.diag([e1, e2, e3])
@@ -390,11 +408,11 @@ class FaultSatellite(Satellite):
                 return (data, np.zeros((3, 1)))
             
             f1 = fault_data.f1
-            if fault_data.gyro_fault_idx == 0:
+            if fault_data.gyro_fault_idx == 1:
                 omega_f = np.array([[f1], [0], [0]])
-            elif fault_data.gyro_fault_idx == 1:
-                omega_f = np.array([[0], [f1], [0]])
             elif fault_data.gyro_fault_idx == 2:
+                omega_f = np.array([[0], [f1], [0]])
+            elif fault_data.gyro_fault_idx == 3:
                 omega_f = np.array([[0], [0], [f1]])
             omega = data + omega_f
             return (omega, omega_f)
@@ -403,22 +421,22 @@ class FaultSatellite(Satellite):
                 f2 = fault_data.k_s*(fault_data.fault_end_time-fault_data.fault_start_time)
             else:
                 f2 = fault_data.lambda_s*fault_data.k_s*(t-fault_data.fault_start_time)
-            if fault_data.gyro_fault_idx == 0:
+            if fault_data.gyro_fault_idx == 1:
                 omega_f = np.array([[f2], [0], [0]])
-            elif fault_data.gyro_fault_idx == 1:
-                omega_f = np.array([[0], [f2], [0]])
             elif fault_data.gyro_fault_idx == 2:
+                omega_f = np.array([[0], [f2], [0]])
+            elif fault_data.gyro_fault_idx == 3:
                 omega_f = np.array([[0], [0], [f2]])
             omega = data + omega_f
             return (omega, omega_f)
         elif fault_data.fault_type == FaultParams.FaultType.GYRO_MULTI_FAULT:
             if t > fault_data.fault_end_time:
                 return (data, np.zeros((3, 1)))
-            if fault_data.gyro_fault_idx == 0:
+            if fault_data.gyro_fault_idx == 1:
                 omega_f = np.diag([fault_data.lambda_m, 1, 1]) @ data
-            elif fault_data.gyro_fault_idx == 1:
-                omega_f = np.diag([1, fault_data.lambda_m, 1]) @ data
             elif fault_data.gyro_fault_idx == 2:
+                omega_f = np.diag([1, fault_data.lambda_m, 1]) @ data
+            elif fault_data.gyro_fault_idx == 3:
                 omega_f = np.diag([1, 1, fault_data.lambda_m]) @ data
             omega = omega_f
             omega_f = omega_f - data

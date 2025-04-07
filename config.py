@@ -2,7 +2,7 @@ import json
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List
 
 @dataclass
 class SimulationConfig:
@@ -10,6 +10,10 @@ class SimulationConfig:
     ts: float
     fault_mode: int
     fault_params: List[float]
+    fault_start_time: float
+    fault_end_time: float
+    flywheel_fault_idx: int
+    gyro_fault_idx: int
 
 @dataclass
 class OrbitConfig:
@@ -113,7 +117,11 @@ class EnvConfig:
                 t_max=config['simulation']['t_max'],
                 ts=config['simulation']['ts'],
                 fault_mode=config['simulation']['fault_mode'],
-                fault_params=config['simulation']['fault_params']
+                fault_params=config['simulation']['fault_params'],
+                fault_start_time=config['simulation']['fault_start_time'],
+                fault_end_time=config['simulation']['fault_end_time'],
+                flywheel_fault_idx=config['simulation']['flywheel_fault_idx'],
+                gyro_fault_idx=config['simulation']['gyro_fault_idx']
             )
 
             # 解析轨道参数

@@ -93,7 +93,7 @@ class FaultParams:
         FaultType.FLYWHEEL_COMPREHENSIVE: 2
     }
 
-    def __init__(self, fault_type: FaultType, params: List[float]):
+    def __init__(self, fault_type: FaultType = FaultType.NO_FAULT, params: List[float] = [0.0]):
         self.fault_type:FaultParams.FaultType = fault_type
         self.params:List[float] = params
 
@@ -110,8 +110,6 @@ class FaultParams:
 
         self.gyro_fault_idx: int = 0   # 陀螺故障索引
         self.flywheel_fault_idx: int = 0  # 飞轮故障索引
-        
-        self._validate_and_assign_params()
 
     def _validate_and_assign_params(self):
         """验证参数并赋值给对应属性"""
@@ -135,22 +133,6 @@ class FaultParams:
         elif self.fault_type == self.FaultType.FLYWHEEL_COMPREHENSIVE:
             self.e, self.b = self.params[0], self.params[1]
 
-    def to_bytes(self) -> bytes:
-        try:
-            return struct.pack(f'<{len(self.params)}d', *self.params)
-        except struct.error as e:
-            raise ValueError(f"Parameter serialization failed: {e}") from e
-
-    @classmethod
-    def from_bytes(cls, data: bytes, fault_type: FaultType) -> 'FaultParams':
-        """从字节反序列化"""
-        num_params = cls._get_expected_param_count(fault_type)
-        if len(data) != num_params * 8:  # 每个double占8字节
-            raise ValueError(f"Invalid data length for {fault_type.name}")
-            
-        params = list(struct.unpack(f'<{num_params}d', data))
-        return cls(fault_type, params)
-
     @classmethod
     def _get_expected_param_count(cls, fault_type: FaultType) -> int:
         """根据故障类型获取预期的参数数量"""
@@ -158,7 +140,7 @@ class FaultParams:
 
     def to_byte_array(self) -> bytes:
         """序列化为字节数组"""
-        fault_param_bytes = self.to_bytes()
+        fault_param_bytes = struct.pack(f'<{len(self.params)}d', *self.params)
         if (
             self.fault_type == self.FaultType.GYRO_INTERMITTENT_FAULT or
             self.fault_type == self.FaultType.GYRO_SLOW_FAULT or
@@ -187,7 +169,14 @@ class FaultParams:
         fault_type = FaultParams.FaultType(fault_type_val)
 
         # 实例化
-        ret = FaultParams.from_bytes(data[16:], fault_type)
+        data_params = data[16:]
+        num_params = cls._get_expected_param_count(fault_type)
+        if len(data_params) != num_params * 8:  # 每个double占8字节
+            raise ValueError(f"Invalid data length for {fault_type.name}")
+            
+        params = list(struct.unpack(f'<{num_params}d', data_params))
+        ret = cls(fault_type, params)
+    
         ret.fault_start_time = start_time
         ret.fault_end_time = end_time
         if (
@@ -202,6 +191,8 @@ class FaultParams:
             fault_type == FaultParams.FaultType.FLYWHEEL_COMPREHENSIVE
         ):
             ret.flywheel_fault_idx = fault_component_id
+        ret._validate_and_assign_params()
+
         return ret
     
 
@@ -308,6 +299,6 @@ if __name__ == "__main__":
     if unpacked_fault:
         print(f"Unpacked Fault: {vars(unpacked_fault)}")
         # 打印故障参数
-        print(f"Fault Type: {unpacked_fault.faultType.name}")
-        print(f"Fault Params: {unpacked_fault.faultParams.params}")
+        print(f"Fault Type: {unpacked_fault.fault_type.name}")
+        print(f"Fault Params: {unpacked_fault.params}")
     

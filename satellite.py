@@ -509,7 +509,7 @@ class SunPointSatellite(Satellite):
         self.se_buffer.append(self.se)
 
     def compute_qd_in_sun_point(self, si, sd):
-        sd[:2] = sd[:2] + np.random.normal(0, 0.01, (2, 1))
+        # sd[:2] = sd[:2] + np.random.normal(0, 0.01, (2, 1))
         # 归一化 si 和 sd
         si_norm = si / np.linalg.norm(si)
         sd_norm = sd / np.linalg.norm(sd)

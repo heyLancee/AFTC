@@ -9,9 +9,10 @@ import matplotlib.pyplot as plt
 import logging
 from utils import Noise, GyroscopeNoise, QuaternionNoise, Flywheel
 from config import EnvConfig, OrbitConfig
-
-
+from base import FaultParams
 import numpy as np
+from typing import Union, Tuple, Optional, List
+
 
 class Orbit:
     def __init__(self, ts, t_max, config: OrbitConfig):
@@ -326,42 +327,104 @@ class FaultSatellite(Satellite):
         self.uf_buffer = []  # 单机故障力矩
         
         # 执行器故障相关
-        self.fault_mode = config.simulation.fault_mode
-        self.e1 = 0
-        self.e2 = 0
-        self.e3 = 0
-        self.b1 = 0
-        self.b2 = 0
-        self.b3 = 0
+        self.fault_mode:FaultParams.FaultType = config.simulation.fault_mode
+        self.fault_params: List[float] = config.simulation.fault_params
 
-    def update_u_f(self, torque):
-        self.fault_inject(self.t, self.fault_mode)
-        E = np.diag([self.e1, self.e2, self.e3])
-        B = np.array([self.b1, self.b2, self.b3])
-        u_f = - E @ torque + B.reshape(-1, 1)
-        # u_f要保证torque+u_f得到的值在u_max和-u_max之间
-        u_f = np.clip(torque.flatten() + u_f.flatten(), -self.u_max, self.u_max).reshape(-1, 1) - torque
+    # fault_data是向外部提供的故障配置参数
+    def update_u_f(self, torque, fault_data:Optional[FaultParams]=None):
+        if fault_data is None:
+            fault_data = FaultParams(self.fault_mode, self.fault_params)
+        else:
+            self.fault_mode = fault_data.fault_type
+        u, u_f = self.fault_inject(self.t, torque, fault_data)
+        u = np.clip(u.flatten(), -self.u_max, self.u_max).reshape(-1, 1)
+        u_f = u - torque
         self.uf_buffer.append(u_f.flatten())
-
-    def step_fault_satellite(self, torque):
-        torque = torque.reshape(-1, 1)
-        self.update_u_f(torque)
+        return u
+    
+    def update_omega_f(self, omega, fault_data:Optional[FaultParams]=None):
+        if fault_data is None:
+            fault_data = FaultParams(self.fault_mode, self.fault_params)
+        else:
+            self.fault_mode = fault_data.fault_type
+        omega, _ = self.fault_inject(self.t, omega, fault_data)
+        return omega
 
     def step(self, torque):
-        self.step_fault_satellite(torque)
-        u = torque + self.uf_buffer[-1].reshape(-1, 1)
+        torque = torque.reshape(-1, 1)
+        u = self.update_u_f(torque)
+        self.omega = self.update_omega_f(self.omega)
         return Satellite.step(self, u)
 
-    def fault_inject(self, t, fault_mode):
-        if t < 50:
-            return
-        if fault_mode == 1:  # x轴部分失效故障
-            self.e1 = 0.5
-        elif fault_mode == 2:  # y轴偏置故障
-            self.b2 = 0.02
-        elif fault_mode == 3:  # z轴综合故障
-            self.e3 = 0.5
-            self.b3 = 0.02
+    def fault_inject(self, t, data:np.ndarray, fault_data:FaultParams) -> Union[None, Tuple[np.ndarray, np.ndarray]]:
+        if fault_data.fault_type == FaultParams.FaultType.NO_FAULT:
+            return (data, np.zeros((3, 1)))
+        if t < fault_data.fault_start_time:
+            return (data, np.zeros((3, 1)))
+        if (
+            fault_data.fault_type == FaultParams.FaultType.FLYWHEEL_PARTIAL_LOSS or 
+            fault_data.fault_type == FaultParams.FaultType.FLYWHEEL_BIAS or
+            fault_data.fault_type == FaultParams.FaultType.FLYWHEEL_COMPREHENSIVE
+        ):
+            if t > fault_data.fault_end_time:
+                return (data, np.zeros((3, 1)))
+            e1, e2, e3 = 0
+            b1, b2, b3 = 0
+            if fault_data.gyro_fault_idx == 0:
+                e1 = fault_data.e
+                b1 = fault_data.b
+            elif fault_data.gyro_fault_idx == 1:
+                e2 = fault_data.e
+                b2 = fault_data.b
+            elif fault_data.gyro_fault_idx == 2:
+                e3 = fault_data.e
+                b3 = fault_data.b
+            E = np.diag([e1, e2, e3])
+            B = np.array([b1, b2, b3])
+
+            u_f = - E @ data + B.reshape(-1, 1)
+            u = data + u_f
+            return (u, u_f)
+        elif fault_data.fault_type == FaultParams.FaultType.GYRO_INTERMITTENT_FAULT:
+            if t > fault_data.fault_end_time:
+                return (data, np.zeros((3, 1)))
+            
+            f1 = fault_data.f1
+            if fault_data.gyro_fault_idx == 0:
+                omega_f = np.array([[f1], [0], [0]])
+            elif fault_data.gyro_fault_idx == 1:
+                omega_f = np.array([[0], [f1], [0]])
+            elif fault_data.gyro_fault_idx == 2:
+                omega_f = np.array([[0], [0], [f1]])
+            omega = data + omega_f
+            return (omega, omega_f)
+        elif fault_data.fault_type == FaultParams.FaultType.GYRO_SLOW_FAULT:
+            if t > fault_data.fault_end_time:
+                f2 = fault_data.k_s*(fault_data.fault_end_time-fault_data.fault_start_time)
+            else:
+                f2 = fault_data.lambda_s*fault_data.k_s*(t-fault_data.fault_start_time)
+            if fault_data.gyro_fault_idx == 0:
+                omega_f = np.array([[f2], [0], [0]])
+            elif fault_data.gyro_fault_idx == 1:
+                omega_f = np.array([[0], [f2], [0]])
+            elif fault_data.gyro_fault_idx == 2:
+                omega_f = np.array([[0], [0], [f2]])
+            omega = data + omega_f
+            return (omega, omega_f)
+        elif fault_data.fault_type == FaultParams.FaultType.GYRO_MULTI_FAULT:
+            if t > fault_data.fault_end_time:
+                return (data, np.zeros((3, 1)))
+            if fault_data.gyro_fault_idx == 0:
+                omega_f = np.diag([fault_data.lambda_m, 1, 1]) @ data
+            elif fault_data.gyro_fault_idx == 1:
+                omega_f = np.diag([1, fault_data.lambda_m, 1]) @ data
+            elif fault_data.gyro_fault_idx == 2:
+                omega_f = np.diag([1, 1, fault_data.lambda_m]) @ data
+            omega = omega_f
+            omega_f = omega_f - data
+            return (omega, omega_f)
+            
+        return (data, np.zeros((3, 1)))
 
     def plot_fault_satellite(self):
         times = np.linspace(0, self.t_max, len(self.uf_buffer))
@@ -511,8 +574,8 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
 
     def step(self, torque):
         torque = torque.reshape(-1, 1)
-        FaultSatellite.step_fault_satellite(self, torque)
-        u = torque + self.uf_buffer[-1].reshape(-1, 1)
+        u = FaultSatellite.update_u_f(self, torque)
+        self.omega = FaultSatellite.update_omega_f(self, self.omega)
         _, _, done, info = Satellite.step(self, u)
         state = SunPointSatellite.step_sun_point_satellite(self)
         qev = self.state[1:4]

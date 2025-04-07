@@ -96,6 +96,9 @@ class FaultParams:
     def __init__(self, fault_type: FaultType, params: List[float]):
         self.fault_type:FaultParams.FaultType = fault_type
         self.params:List[float] = params
+
+        self.fault_start_time: float = 0.0  # 故障开始时间
+        self.fault_end_time: float = 0.0    # 故障结束时间
         
         # 初始化所有可能的参数为0.0
         self.f1: float = 0.0          # 间歇故障系数
@@ -104,6 +107,9 @@ class FaultParams:
         self.lambda_m: float = 0.0     # 乘性系数
         self.e: float = 0.0            # 部分失效系数
         self.b: float = 0.0            # 偏置系数
+
+        self.gyro_fault_idx: int = 0   # 陀螺故障索引
+        self.flywheel_fault_idx: int = 0  # 飞轮故障索引
         
         self._validate_and_assign_params()
 
@@ -150,34 +156,54 @@ class FaultParams:
         """根据故障类型获取预期的参数数量"""
         return cls._PARAM_COUNTS.get(fault_type, 0)
 
-
-class FaultDataStruct:
-    def __init__(self, faultStartTime: float, faultEndTime: float, 
-                faultType: FaultParams.FaultType, faultParams: FaultParams):
-        self.faultStartTime: float = faultStartTime
-        self.faultEndTime: float = faultEndTime
-        self.faultType: FaultParams.Type = faultType
-        self.faultParams: FaultParams = faultParams
-
     def to_byte_array(self) -> bytes:
         """序列化为字节数组"""
-        fault_param_bytes = self.faultParams.to_bytes()
-        return struct.pack('<2fI',
-                         self.faultStartTime,
-                         self.faultEndTime,
-                         self.faultType.value) + fault_param_bytes
+        fault_param_bytes = self.to_bytes()
+        if (
+            self.fault_type == self.FaultType.GYRO_INTERMITTENT_FAULT or
+            self.fault_type == self.FaultType.GYRO_SLOW_FAULT or
+            self.fault_type == self.FaultType.GYRO_MULTI_FAULT
+        ):
+            fault_component_id:int = self.gyro_fault_idx
+        elif (
+            self.fault_type == self.FaultType.FLYWHEEL_PARTIAL_LOSS or
+            self.fault_type == self.FaultType.FLYWHEEL_BIAS or
+            self.fault_type == self.FaultType.FLYWHEEL_COMPREHENSIVE
+        ):
+            fault_component_id:int = self.flywheel_fault_idx
+        return struct.pack('<2f2I',
+                         self.fault_start_time,
+                         self.fault_end_time,
+                         self.fault_type.value,
+                         fault_component_id) + fault_param_bytes
 
     @classmethod
-    def from_byte_array(cls, data: bytes) -> 'FaultDataStruct':
+    def from_byte_array(cls, data: bytes) -> 'FaultParams':
         """从字节数组反序列化"""
-        if len(data) < 12:  # 2个float + 1个int = 12字节
+        if len(data) < 16:  # 2个float + 2个int = 16字节
             raise ValueError("Data too short")
             
-        start_time, end_time, fault_type_val = struct.unpack('<2fI', data[:12])
+        start_time, end_time, fault_type_val, fault_component_id = struct.unpack('<2f2I', data[:16])
         fault_type = FaultParams.FaultType(fault_type_val)
-              
-        return cls(start_time, end_time, fault_type, 
-                    FaultParams.from_bytes(data[12:], fault_type))
+
+        # 实例化
+        ret = FaultParams.from_bytes(data[16:], fault_type)
+        ret.fault_start_time = start_time
+        ret.fault_end_time = end_time
+        if (
+            fault_type == FaultParams.FaultType.GYRO_INTERMITTENT_FAULT or
+            fault_type == FaultParams.FaultType.GYRO_SLOW_FAULT or
+            fault_type == FaultParams.FaultType.GYRO_MULTI_FAULT
+        ):
+            ret.gyro_fault_idx = fault_component_id
+        elif (
+            fault_type == FaultParams.FaultType.FLYWHEEL_PARTIAL_LOSS or
+            fault_type == FaultParams.FaultType.FLYWHEEL_BIAS or
+            fault_type == FaultParams.FaultType.FLYWHEEL_COMPREHENSIVE
+        ):
+            ret.flywheel_fault_idx = fault_component_id
+        return ret
+    
 
 class PackageManager:
     _instance = None
@@ -194,7 +220,7 @@ class PackageManager:
         self.header = header.encode('utf-8')
         self.tail = tail.encode('utf-8')
     
-    def package(self, data: Union[TelemetryStruct, FaultDataStruct], commu_type: CommuDataType) -> bytes:
+    def package(self, data: Union[TelemetryStruct, FaultParams], commu_type: CommuDataType) -> bytes:
         """封装数据包：header + type + data + tail"""
         data_bytes = data.to_byte_array()
         return (
@@ -204,7 +230,7 @@ class PackageManager:
             self.tail
         )
     
-    def unpackage(self, package: bytes) -> Union[TelemetryStruct, FaultDataStruct, None]:
+    def unpackage(self, package: bytes) -> Union[TelemetryStruct, FaultParams, None]:
         """解包数据包"""
         if not self._validate_package(package):
             return None
@@ -232,7 +258,7 @@ class PackageManager:
             if commu_type == CommuDataType.TELEMETRY:
                 return TelemetryStruct.from_byte_array(data)
             elif commu_type == CommuDataType.FAULT_PARA:
-                return FaultDataStruct.from_byte_array(data)
+                return FaultParams.from_byte_array(data)
             else:
                 return None
                 
@@ -274,11 +300,9 @@ if __name__ == "__main__":
         # 打印十六进制
         print(f"Unpacked Telemetry (Hex): {unpacked_telemetry.to_byte_array().hex()}")
 
-    # 测试FaultDataStruct
+    # 测试FaultParams
     fault_params = FaultParams(FaultParams.FaultType.GYRO_INTERMITTENT_FAULT, [0.5])
-    fault_data = FaultDataStruct(1.0, 2.0, FaultParams.FaultType.GYRO_INTERMITTENT_FAULT, fault_params)
-    fault_package = package_manager.package(fault_data, CommuDataType.FAULT_PARA)
-    print(f"Fault Package: {fault_package}")
+    fault_package = package_manager.package(fault_params, CommuDataType.FAULT_PARA)
     unpacked_fault = package_manager.unpackage(fault_package)
 
     if unpacked_fault:

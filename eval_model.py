@@ -205,10 +205,10 @@ if __name__ == "__main__":
     else:
         env = gym.make(env_name)
 
-    client = UdpClient(env, config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
-    if not client.connect_to_server():
-        print("Failed to connect to server")
-        sys.exit(1)
+    # client = UdpClient(env, config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
+    # if not client.connect_to_server():
+    #     print("Failed to connect to server")
+    #     sys.exit(1)
 
     state_dim = env.observation_space.shape[0]
     state_dim += td3.STATE_APPEND_NUM

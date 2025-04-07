@@ -2,7 +2,8 @@
     "simulation": {
         "t_max": 200,
         "ts": 0.1,
-        "fault_mode": 0
+        "fault_mode": 0,
+        "fault_params": [0.0]
     },
     "orbit": {
         "constants": {

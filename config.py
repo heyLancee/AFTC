@@ -2,13 +2,14 @@ import json
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 @dataclass
 class SimulationConfig:
     t_max: float
     ts: float
     fault_mode: int
+    fault_params: List[float]
 
 @dataclass
 class OrbitConfig:
@@ -111,7 +112,8 @@ class EnvConfig:
             self.simulation = SimulationConfig(
                 t_max=config['simulation']['t_max'],
                 ts=config['simulation']['ts'],
-                fault_mode=config['simulation']['fault_mode']
+                fault_mode=config['simulation']['fault_mode'],
+                fault_params=config['simulation']['fault_params']
             )
 
             # 解析轨道参数

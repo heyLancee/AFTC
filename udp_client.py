@@ -1,9 +1,8 @@
 import socket
 import numpy as np
 import time
-import sys
-from typing import Tuple
-from base import TelemetryStruct, CommuDataType, FaultDataStruct, PackageManager
+from base import TelemetryStruct, CommuDataType, PackageManager, FaultParams
+from satellite import FaultSatellite
 
 
 class UdpClient:
@@ -55,7 +54,7 @@ class UdpClient:
         """启动数据接收线程"""
         import threading
         self.is_receiving = True
-        self.receive_thread = threading.Thread(target=self._receive_data)
+        self.receive_thread = threading.Thread(target=self._receive_data, args=(env,))
         self.receive_thread.daemon = True  # 设置为守护线程
         self.receive_thread.start()
 
@@ -65,7 +64,7 @@ class UdpClient:
         if hasattr(self, 'receive_thread'):
             self.receive_thread.join()
 
-    def _receive_data(self):
+    def _receive_data(self, env:FaultSatellite):
         """接收数据的内部方法"""
         if not self.sock:
             print("Socket not initialized")
@@ -80,15 +79,15 @@ class UdpClient:
                 print(f"Received data from {addr}: {data}")
                 data = self.package_manager.unpackage(data)
 
-                if isinstance(data, FaultDataStruct):
-                    self._handle_fault_para(data)
+                if isinstance(data, FaultParams):
+                    self._handle_fault_para(data, env)
             except socket.timeout:
                 continue
             except Exception as e:
                 print(f"Error receiving data: {e}")
                 continue
 
-    def _handle_fault_para(self, data: FaultDataStruct):
+    def _handle_fault_para(self, data: FaultParams, env:FaultSatellite):
         """处理故障参数数据"""
         try:
             print(f"Received fault parameters: {vars(data)}")

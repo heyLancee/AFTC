@@ -1,18 +1,24 @@
+import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(current_file_path)
+root_path = os.path.dirname(parent_dir)
+sys.path.append(root_path)
+
 import gym
 import pandas as pd
 import torch
 import time
-from dyn_net import AttitudeDynamicsNN
-import dyn_net
-import td3
-from satellite import *
-from pyflywheel import FlyWheel
-from PyRealTime import RealTimeSimulation
-import sys
-from udp_client import UdpClient
-from config import EnvConfig
 from typing import Optional
 
+from communication.udp_client import UdpClient
+from configs.config import EnvConfig
+from src.satellite import *
+from pyflywheel import FlyWheel
+from PyRealTime import RealTimeSimulation
+import src.td3 as td3
+from src.dyn_net import AttitudeDynamicsNN, OUTPUT_NUM
 
 def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Satellite, seed:int,
                 path:Optional[str]=None, client:Optional[UdpClient]=None, is_plot:bool=False):
@@ -22,10 +28,10 @@ def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Sat
     rewards = []
     states = []
     state, done = eval_env.reset(), False
-    state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
+    state = np.concatenate((state, np.zeros(OUTPUT_NUM)))
 
-    print("等待故障注入")
-    time.sleep(10)
+    # print("等待故障注入")
+    # time.sleep(10)
 
     while not done:
         if agent is not None:
@@ -56,7 +62,11 @@ def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Sat
     angles = np.array(eval_env.theta_buffer)
     actions = np.array(eval_env.u_buffer)
 
-    print("reward: ", np.sum(rewards))
+    min_length = min(len(states), len(angles), len(actions), len(rewards))
+    states = states[:min_length]
+    angles = angles[:min_length]
+    actions = actions[:min_length]
+    rewards = rewards[:min_length]
 
     if path:
         df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
@@ -90,7 +100,7 @@ def eval_policy_with_flywheel(agent, dynamic_net, env_name, seed, path=None, is_
     rewards = []
     states = []
     state, done = eval_env.reset(), False
-    state = np.concatenate((state, np.zeros(dyn_net.OUTPUT_NUM)))
+    state = np.concatenate((state, np.zeros(OUTPUT_NUM)))
     torque_0 = 0
 
     def fly_callback(telemetry, last_telemetry):
@@ -186,14 +196,14 @@ if __name__ == "__main__":
     # seed = np.random.randint(1, 100)
     seed = 1
     env_name = "SunPointFaultSatellite"
-    dynamic_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
+    dynamic_net_path = "dynamic_net/attitude_dynamics_model.pth"
     hidden_size = [64, 128]
     discount = 0.99
     tau = 0.005
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    policy_model_path = "u_max_008\TD3_SunPointFaultSatellite_0"
+    policy_model_path = "u_max_008/TD3_SunPointFaultSatellite_0"
     save_path = "results/u_max_008/eval_res.csv"
 
     config = EnvConfig()
@@ -238,13 +248,14 @@ if __name__ == "__main__":
     else:
         raise NotImplementedError
 
+    model_path = os.path.join(root_path, "models")
     if policy_model_path != "":
-        policy.load(f"./models/{policy_model_path}")
+        policy.load(f"{model_path}/{policy_model_path}")
 
-    dynamicNet = dyn_net.AttitudeDynamicsNN(hidden_size)
+    dynamicNet = AttitudeDynamicsNN(hidden_size)
     if dynamic_net_path != "":
         print(f"Load dynamic net from {dynamic_net_path}")
-        dynamicNet.load_model(dynamic_net_path)
+        dynamicNet.load_model(f"{model_path}/{dynamic_net_path}")
 
     # Evaluate untrained policy
     reward = eval_policy(policy, dynamicNet, env, seed, path=None, client=client, is_plot=True)

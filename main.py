@@ -1,15 +1,22 @@
+import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+root_path = os.path.dirname(current_file_path)
+sys.path.append(root_path)
+
 import pandas as pd
-import torch
 import gym
 import argparse
-import os
-import utils
-import td3
-from dyn_net import AttitudeDynamicsNN
-from eval_model import eval_policy
-from satellite import *
-from config import EnvConfig
+import numpy as np
+import torch
 
+from src.util_classes import ReplayBuffer
+import src.td3 as td3
+from src.dyn_net import AttitudeDynamicsNN
+from src.eval_model import eval_policy
+from src.satellite import *
+from configs.config import EnvConfig
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
@@ -55,8 +62,9 @@ if __name__ == "__main__":
 	if not os.path.exists(f"./results/{args.dir}"):
 		os.makedirs(f"./results/{args.dir}")
 
-	if args.save_model and not os.path.exists(f"./models/{args.dir}"):
-		os.makedirs(f"./models/{args.dir}")
+	model_path = os.path.join(root_path, "models")
+	if args.save_model and not os.path.exists(f"{model_path}/{args.dir}"):
+		os.makedirs(f"{model_path}/{args.dir}")
 
 	config = EnvConfig()
 
@@ -70,16 +78,10 @@ if __name__ == "__main__":
 		env = SunPointFaultSatellite(config)
 	else:
 		env = gym.make(args.env)
-
-	# Set seeds
-	# env.seed(args.seed)
-	# env.action_space.seed(args.seed)
-	# torch.manual_seed(args.seed)
-	# np.random.seed(args.seed)
 	
 	state_dim = env.observation_space.shape[0]
 	# state_dim append with the vars related to dyanmic net
-	# state_dim += td3.STATE_APPEND_NUM
+	state_dim += td3.STATE_APPEND_NUM
 	action_dim = env.action_space.shape[0] 
 	max_action = float(env.action_space.high[0])
 
@@ -107,22 +109,22 @@ if __name__ == "__main__":
 	if args.load_model != "":
 		policy_file = file_name if args.load_model == "default" else args.load_model
 		print("agent load model: ", policy_file)
-		policy.load(f"./models/{policy_file}")
+		policy.load(f"{model_path}/{policy_file}")
 
 	dynamic_net = AttitudeDynamicsNN(list(map(int, args.dyn_hidden_size.split(','))))
 	if args.dyn_net_path != "":
 		print(f"Load dynamic net: {args.dyn_net_path}")
 		dynamic_net.load_model(args.dyn_net_path)
 
-	replay_buffer = utils.ReplayBuffer(state_dim, action_dim)
+	replay_buffer = ReplayBuffer(state_dim, action_dim)
 
 	state, done = env.reset(), False
 	if args.fault_mode != -1:
 		env.fault_mode = args.fault_mode
-	# state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
+	state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 
 	# Evaluate untrained policy
-	evaluations = [eval_policy(policy, dynamic_net, args.env, args.seed)]
+	evaluations = [eval_policy(policy, dynamic_net, env, args.seed)]
 
 	episode_reward = 0
 	episode_timesteps = 0
@@ -146,17 +148,17 @@ if __name__ == "__main__":
 		torque = np.diag(action) @ env.u_max
 
 		# dynamic net
-		# net_input = np.concatenate((env.omega.flatten(), (env.C@torque).flatten()))
-		# pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
+		net_input = np.concatenate((env.omega.flatten(), (env.C@torque).flatten()))
+		pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
 
 		# Perform action
 		next_state, reward, done, _ = env.step(torque.reshape(-1, 1))
 		done_bool = float(done) if episode_timesteps < env._max_episode_steps else 0
 
-		# pred_error = env.omega.flatten() - pred.flatten()
-		# pred_errors.append(pred_error)
+		pred_error = env.omega.flatten() - pred.flatten()
+		pred_errors.append(pred_error)
 	
-		# next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
+		next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
 		
 		# Store data in replay buffer
 		replay_buffer.add(state, action, next_state, reward, done_bool)
@@ -173,21 +175,18 @@ if __name__ == "__main__":
 			print(f"Dir: {args.dir}, Total T: {t+1}, Episode Num: {episode_num+1}/{episode_total_num}, Episode T: {episode_timesteps}, Reward: {episode_reward:.3f}")
 			# Reset environment
 			state, done = env.reset(), False
-			# state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
+			state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 			episode_reward = 0
 			episode_timesteps = 0
 			episode_num += 1
-
-			# plt.plot(np.array(pred_errors))
-			# plt.show()
 
 		# Evaluate episode
 		if (t + 1) % args.eval_freq == 0:
 			eval_reward = 0
 			for _ in range(args.eval_episodes):
-				eval_reward += eval_policy(policy, dynamic_net, args.env, args.seed)
+				eval_reward += eval_policy(policy, dynamic_net, env, args.seed)
 			evaluations.append(eval_reward / args.eval_episodes)
 			pd.DataFrame(evaluations).to_csv(f"./results/{file_name}.csv")
 			if args.save_model:
-				policy.save(f"./models/{file_name}")
+				policy.save(f"{model_path}/{file_name}")
 	

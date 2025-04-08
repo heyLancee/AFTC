@@ -1,13 +1,22 @@
+import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(current_file_path)
+root_path = os.path.dirname(parent_dir)
+sys.path.append(root_path)
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-import argparse
-from satellite import *
-import td3
 from typing import List
+import argparse
+
+from src.satellite import *
+import src.td3 as td3
 
 INPUT_NUM = 6
 OUTPUT_NUM = td3.STATE_APPEND_NUM
@@ -102,126 +111,11 @@ class AttitudeDynamicsNN(nn.Module):
         self.load_state_dict(torch.load(path, map_location=self.device))
 
 
-def eval_net_in_env(env_name, fault_mode, dynamic_net_path, hidden_size, seed):
-    env_config = EnvConfig()
-
-    # 加载模型
-    dynamic_net = AttitudeDynamicsNN(hidden_size=hidden_size)
-    if dynamic_net_path != "":
-        dynamic_net.load_model(dynamic_net_path)
-
-    # swtch case
-    if env_name == "Satellite":
-        env = Satellite(env_config)
-    elif env_name == "FaultSatellite":
-        env = FaultSatellite(env_config)
-    elif env_name == "SunPointSatellite":
-        env = SunPointSatellite(env_config)
-    elif env_name == "SunPointFaultSatellite":
-        env = SunPointFaultSatellite(env_config)
-    else:
-        raise ValueError("Invalid env name")
-
-    # 初始化环境
-    env.seed(seed)
-    env.action_space.seed(seed)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-
-
-    env.reset()
-    env.fault_mode = fault_mode
-
-    done = False
-
-    error = []
-    preds = []
-    actuals = []
-
-    while not done:
-        # 随机动作
-        # 随机生成一个[-1, 1]之间的四维效率向量
-        efficiency = np.random.rand(4) * 2 - 1  # 在[-1, 1]区间内随机生成4个数
-
-        # 转变成输出力矩，liag * u_max
-        action = np.diag(efficiency) @ env.u_max  # 计算力矩
-
-        input = np.concatenate((env.omega.flatten(), (env.C@action).flatten()))
-        input = torch.tensor(input, dtype=torch.float32).reshape((1, -1))
-        pred = dynamic_net.forward(input).cpu().detach().numpy()
-
-        # 环境更新
-        _, _, done, _ = env.step(action.reshape(-1, 1))
-
-        # 计算误差
-        actual = env.omega.flatten()
-        preds.append(pred.flatten())
-        actuals.append(actual.flatten())
-        error.append(pred.flatten() - actual.flatten())
-
-    # 转numpy
-    preds = np.array(preds)
-    actuals = np.array(actuals)
-    error = np.array(error)
-
-    # 用axis的形式绘图
-    fig, ax = plt.subplots(3, 1, figsize=(8, 4))
-    ax[0].plot(preds[:, 0], label='pred0')
-    ax[0].plot(actuals[:, 0], label='actual0')
-    ax[0].legend()
-    ax[0].set_title('omega0')
-    ax[0].set_xlabel('Time')
-    ax[0].set_ylabel('omega0')
-
-    ax[1].plot(preds[:, 1], label='pred1')
-    ax[1].plot(actuals[:, 1], label='actual1')
-    ax[1].legend()
-    ax[1].set_title('omega1')
-    ax[1].set_xlabel('Time')
-    ax[1].set_ylabel('omega1')
-
-    ax[2].plot(preds[:, 2], label='pred2')
-    ax[2].plot(actuals[:, 2], label='actual2')
-    ax[2].legend()
-    ax[2].set_title('omega2')
-    ax[2].set_xlabel('Time')
-    ax[2].set_ylabel('omega2')
-
-    plt.show()
-
-    fig, ax = plt.subplots(3, 1, figsize=(8, 4))
-    ax[0].plot(error[:, 0], label='e0')
-    ax[0].legend()
-    ax[0].set_title('e0')
-    ax[0].set_xlabel('Time')
-    ax[0].set_ylabel('e0')
-
-    ax[1].plot(error[:, 1], label='e1')
-    ax[1].legend()
-    ax[1].set_title('e1')
-    ax[1].set_xlabel('Time')
-    ax[1].set_ylabel('e1')
-
-    ax[2].plot(error[:, 2], label='e2')
-    ax[2].legend()
-    ax[2].set_title('e2')
-    ax[2].set_xlabel('Time')
-    ax[2].set_ylabel('e2')
-
-    plt.show()
-
-    # save preds and actuals to one csv file
-    pd.DataFrame(np.concatenate((preds, actuals), axis=1), columns=['pred0', 'pred1', 'pred2', 'actual0', 'actual1', 'actual2']).to_csv(f"./results/dyn_net/eval_preds_actuals_{env_name}_{fault_mode}.csv", index=False)
-
-    # save error to one csv file
-    pd.DataFrame(error, columns=['e0', 'e1', 'e2']).to_csv(f"./results/dyn_net/eval_error_{env_name}_{fault_mode}.csv", index=False)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_name", default="Satellite", type=str)
     parser.add_argument("--hidden_size", default=128, type=int)
-    parser.add_argument("--data_path", default="./sample_data/data.csv", type=str)
+    parser.add_argument("--data_path", default="../sample_data/data.csv", type=str)
     parser.add_argument("--model_save_path", default="./models/dynamic_net/attitude_dynamics_model_4_step.pth", type=str)
     parser.add_argument("--data_save_path", default="./models/dynamic_net/eval_loss.csv", type=str)
     parser.add_argument("--model_load_path", default="", type=str)
@@ -251,9 +145,10 @@ if __name__ == '__main__':
 
     env_name = "FaultSatellite"
     hidden_size = [64, 128]
-    # save_model = True
+    data_path = "../sample_data/data.csv"
+    save_model = True
     fault_mode = 2
-    model_load_path = r"models/dynamic_net/attitude_dynamics_model.pth"
+    model_load_path = r"dynamic_net/attitude_dynamics_model.pth"
 
     # 打印一些log
     print("---------------------------------------")
@@ -274,7 +169,7 @@ if __name__ == '__main__':
 
     if model_load_path != "":
         print("load model: ", model_load_path)
-        model.load_model(model_load_path)
+        model.load_model(f"../models/{model_load_path}")
 
     data = pd.read_csv(data_path)
     x = data.iloc[:, :INPUT_NUM].values
@@ -289,5 +184,3 @@ if __name__ == '__main__':
                           learning_rate=lr, model_path=model_save_path, data_path=data_save_path)
         # 保存模型
         model.save_model(model_save_path)
-
-    eval_net_in_env(env_name, fault_mode, model_load_path, hidden_size, seed)

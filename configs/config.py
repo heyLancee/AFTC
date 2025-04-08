@@ -108,7 +108,7 @@ class EnvConfig:
     def _load_config(self):
         """加载并解析配置文件"""
         try:
-            config_path = Path(__file__).parent / 'configs' / 'params.json'
+            config_path = Path(__file__).parent / 'params.json'
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
 

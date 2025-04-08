@@ -8,6 +8,10 @@ class CommuDataType(IntEnum):
     FAULT_RESULT = 2
     FAULT_PARA = 3
 
+class ComponentFaultType(IntEnum):
+    FLYWHEEL = 1
+    GYROSCOPES = 2
+
 # 数据结构定义
 class TelemetryStruct:
     def __init__(self):

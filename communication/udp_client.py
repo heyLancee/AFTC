@@ -1,8 +1,16 @@
+import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(current_file_path)
+root_path = os.path.dirname(parent_dir)
+sys.path.append(root_path)
+
 import socket
 import numpy as np
 import time
-from base import TelemetryStruct, CommuDataType, PackageManager, FaultParams
-from satellite import FaultSatellite
+from src.base import TelemetryStruct, CommuDataType, PackageManager, FaultParams
+from src.satellite import FaultSatellite
 
 
 class UdpClient:
@@ -135,7 +143,7 @@ if __name__ == "__main__":
     local_port = 5010
 
     from satellite import SunPointFaultSatellite
-    from config import EnvConfig
+    from configs.config import EnvConfig
     config = EnvConfig()
     env = SunPointFaultSatellite(config)
     env.reset()

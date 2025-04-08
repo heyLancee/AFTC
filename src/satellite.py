@@ -1,17 +1,24 @@
+import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(current_file_path)
+root_path = os.path.dirname(parent_dir)
+sys.path.append(root_path)
+
 import random
-
 import numpy as np
-
-from satellite_func import *
 from gym import spaces
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 import logging
-from utils import Noise, GyroscopeNoise, QuaternionNoise, Flywheel
-from config import EnvConfig, OrbitConfig
-from base import FaultParams, ComponentFaultType
 import numpy as np
 from typing import Union, Tuple, Optional, List
+
+from src.satellite_func import *
+from src.util_classes import Noise, GyroscopeNoise, QuaternionNoise, Flywheel
+from configs.config import EnvConfig, OrbitConfig
+from src.base import FaultParams, ComponentFaultType
 
 
 class Orbit:
@@ -353,9 +360,11 @@ class FaultSatellite(Satellite):
 
         # 如果故障类型不是飞轮相关，则返回
         u, u_f = self.fault_inject(self.t, torque, ComponentFaultType.FLYWHEEL, fault_data)
-        u = np.clip(u.flatten(), -self.u_max, self.u_max).reshape(-1, 1)
-        # 只有当u_f不是0的时候，才等于u-torque，否则等于0
-        u_f = np.array([u[i]-torque[i] if u_f[i]!=0 else 0 for i in range(len(u_f))]).reshape(-1, 1)
+        u = np.clip(u.flatten(), -self.u_max, self.u_max)
+
+        u = u.flatten()
+        u_f = u_f.flatten()
+        u_f = np.where(u_f != 0, u - torque, 0).reshape(-1, 1)
         self.uf_buffer.append(u_f.flatten())
         return u
     

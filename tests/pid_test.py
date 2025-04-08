@@ -8,7 +8,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 
 from satellite import SunPointSatellite
-from config import EnvConfig
+from configs.config import EnvConfig
 
 def eval_pd(kp, kd, env, seed, path=None, is_plot=False):
     state, done = env.reset(), False
@@ -36,6 +36,3 @@ if __name__ == '__main__':
     env = SunPointSatellite(config)
     eval_pd(kp=0.2, kd=1, env=env, seed=0, is_plot=True)
     
-
-
-

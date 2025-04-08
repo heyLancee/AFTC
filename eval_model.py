@@ -194,7 +194,7 @@ if __name__ == "__main__":
     noise_clip = 0.5
     policy_freq = 2
     policy_model_path = "u_max_008\TD3_SunPointFaultSatellite_0"
-    save_path = "results/u_max_005/eval_res.csv"
+    save_path = "results/u_max_008/eval_res.csv"
 
     config = EnvConfig()
     if env_name == "Satellite":
@@ -247,6 +247,6 @@ if __name__ == "__main__":
         dynamicNet.load_model(dynamic_net_path)
 
     # Evaluate untrained policy
-    reward = eval_policy(policy, dynamicNet, env, seed, path=None, client=None, is_plot=True)
+    reward = eval_policy(policy, dynamicNet, env, seed, path=None, client=client, is_plot=True)
     print("reward: ", reward)
     # client.close()

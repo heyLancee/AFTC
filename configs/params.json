@@ -103,7 +103,7 @@
         "time_constant": 0.5
     },
     "udp": {
-        "host": "127.0.0.1",
+        "host": "192.168.233.129",
         "port": 1200,
         "local_port": 5010,
         "header": "SSSSSSSS",

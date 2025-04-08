@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import logging
 from utils import Noise, GyroscopeNoise, QuaternionNoise, Flywheel
 from config import EnvConfig, OrbitConfig
-from base import FaultParams
+from base import FaultParams, ComponentFaultType
 import numpy as np
 from typing import Union, Tuple, Optional, List
 
@@ -297,7 +297,7 @@ class Satellite:
         self.qd = self.qd / np.linalg.norm(self.qd)
         self.q = np.random.random((4, 1))
         self.q = self.q / np.linalg.norm(self.q)
-        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.05
+        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.1
         qe = get_q_e(self.qd, self.q)
         omega_e = get_omega_e(self.omega, omega_d, qe)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
@@ -350,9 +350,12 @@ class FaultSatellite(Satellite):
             self.fault_start_time = fault_data.fault_start_time
             self.fault_end_time = fault_data.fault_end_time
             self.flywheel_fault_idx = fault_data.flywheel_fault_idx
-        u, u_f = self.fault_inject(self.t, torque, fault_data)
+
+        # 如果故障类型不是飞轮相关，则返回
+        u, u_f = self.fault_inject(self.t, torque, ComponentFaultType.FLYWHEEL, fault_data)
         u = np.clip(u.flatten(), -self.u_max, self.u_max).reshape(-1, 1)
-        u_f = u - torque
+        # 只有当u_f不是0的时候，才等于u-torque，否则等于0
+        u_f = np.array([u[i]-torque[i] if u_f[i]!=0 else 0 for i in range(len(u_f))]).reshape(-1, 1)
         self.uf_buffer.append(u_f.flatten())
         return u
     
@@ -368,7 +371,8 @@ class FaultSatellite(Satellite):
             self.fault_start_time = fault_data.fault_start_time
             self.fault_end_time = fault_data.fault_end_time
             self.gyro_fault_idx = fault_data.gyro_fault_idx
-        omega, _ = self.fault_inject(self.t, omega, fault_data)
+            
+        omega, _ = self.fault_inject(self.t, omega, ComponentFaultType.GYROSCOPES, fault_data)
         return omega
 
     def step(self, torque):
@@ -377,7 +381,8 @@ class FaultSatellite(Satellite):
         self.omega = self.update_omega_f(self.omega)
         return Satellite.step(self, u)
 
-    def fault_inject(self, t, data:np.ndarray, fault_data:FaultParams) -> Union[None, Tuple[np.ndarray, np.ndarray]]:
+    def fault_inject(self, t, data:np.ndarray, fault_conponent:ComponentFaultType, 
+                     fault_data:FaultParams) -> Union[None, Tuple[np.ndarray, np.ndarray]]:
         if fault_data.fault_type == FaultParams.FaultType.NO_FAULT:
             return (data, np.zeros((3, 1)))
         if t < fault_data.fault_start_time:
@@ -387,6 +392,8 @@ class FaultSatellite(Satellite):
             fault_data.fault_type == FaultParams.FaultType.FLYWHEEL_BIAS or
             fault_data.fault_type == FaultParams.FaultType.FLYWHEEL_COMPREHENSIVE
         ):
+            if fault_conponent != ComponentFaultType.FLYWHEEL:
+                return (data, np.zeros((3, 1)))
             if t > fault_data.fault_end_time:
                 return (data, np.zeros((3, 1)))
             e1 = e2 = e3 = 0
@@ -406,44 +413,57 @@ class FaultSatellite(Satellite):
             u_f = - E @ data + B.reshape(-1, 1)
             u = data + u_f
             return (u, u_f)
-        elif fault_data.fault_type == FaultParams.FaultType.GYRO_INTERMITTENT_FAULT:
-            if t > fault_data.fault_end_time:
+        elif (
+            fault_data.fault_type == FaultParams.FaultType.GYRO_SLOW_FAULT or
+            fault_data.fault_type == FaultParams.FaultType.GYRO_INTERMITTENT_FAULT or
+            fault_data.fault_type == FaultParams.FaultType.GYRO_MULTI_FAULT
+        ):
+            if fault_conponent!= ComponentFaultType.GYROSCOPES:
                 return (data, np.zeros((3, 1)))
-            
-            f1 = fault_data.f1
-            if fault_data.gyro_fault_idx == 1:
-                omega_f = np.array([[f1], [0], [0]])
-            elif fault_data.gyro_fault_idx == 2:
-                omega_f = np.array([[0], [f1], [0]])
-            elif fault_data.gyro_fault_idx == 3:
-                omega_f = np.array([[0], [0], [f1]])
-            omega = data + omega_f
-            return (omega, omega_f)
-        elif fault_data.fault_type == FaultParams.FaultType.GYRO_SLOW_FAULT:
-            if t > fault_data.fault_end_time:
-                f2 = fault_data.k_s*(fault_data.fault_end_time-fault_data.fault_start_time)
-            else:
-                f2 = fault_data.lambda_s*fault_data.k_s*(t-fault_data.fault_start_time)
-            if fault_data.gyro_fault_idx == 1:
-                omega_f = np.array([[f2], [0], [0]])
-            elif fault_data.gyro_fault_idx == 2:
-                omega_f = np.array([[0], [f2], [0]])
-            elif fault_data.gyro_fault_idx == 3:
-                omega_f = np.array([[0], [0], [f2]])
-            omega = data + omega_f
-            return (omega, omega_f)
-        elif fault_data.fault_type == FaultParams.FaultType.GYRO_MULTI_FAULT:
-            if t > fault_data.fault_end_time:
-                return (data, np.zeros((3, 1)))
-            if fault_data.gyro_fault_idx == 1:
-                omega_f = np.diag([fault_data.lambda_m, 1, 1]) @ data
-            elif fault_data.gyro_fault_idx == 2:
-                omega_f = np.diag([1, fault_data.lambda_m, 1]) @ data
-            elif fault_data.gyro_fault_idx == 3:
-                omega_f = np.diag([1, 1, fault_data.lambda_m]) @ data
-            omega = omega_f
-            omega_f = omega_f - data
-            return (omega, omega_f)
+            if fault_data.fault_type == FaultParams.FaultType.GYRO_INTERMITTENT_FAULT:
+                if t > fault_data.fault_end_time:
+                    return (data, np.zeros((3, 1)))
+                
+                f1 = fault_data.f1
+                if fault_data.gyro_fault_idx == 1:
+                    omega_f = np.array([[f1], [0], [0]])
+                elif fault_data.gyro_fault_idx == 2:
+                    omega_f = np.array([[0], [f1], [0]])
+                elif fault_data.gyro_fault_idx == 3:
+                    omega_f = np.array([[0], [0], [f1]])
+                else:
+                    omega_f = np.zeros((3, 1))
+                omega = data + omega_f
+                return (omega, omega_f)
+            elif fault_data.fault_type == FaultParams.FaultType.GYRO_SLOW_FAULT:
+                if t > fault_data.fault_end_time:
+                    f2 = fault_data.k_s*(fault_data.fault_end_time-fault_data.fault_start_time)
+                else:
+                    f2 = fault_data.lambda_s*fault_data.k_s*(t-fault_data.fault_start_time)
+                if fault_data.gyro_fault_idx == 1:
+                    omega_f = np.array([[f2], [0], [0]])
+                elif fault_data.gyro_fault_idx == 2:
+                    omega_f = np.array([[0], [f2], [0]])
+                elif fault_data.gyro_fault_idx == 3:
+                    omega_f = np.array([[0], [0], [f2]])
+                else:
+                    omega_f = np.zeros((3, 1))
+                omega = data + omega_f
+                return (omega, omega_f)
+            elif fault_data.fault_type == FaultParams.FaultType.GYRO_MULTI_FAULT:
+                if t > fault_data.fault_end_time:
+                    return (data, np.zeros((3, 1)))
+                if fault_data.gyro_fault_idx == 1:
+                    omega_f = np.diag([fault_data.lambda_m, 1, 1]) @ data
+                elif fault_data.gyro_fault_idx == 2:
+                    omega_f = np.diag([1, fault_data.lambda_m, 1]) @ data
+                elif fault_data.gyro_fault_idx == 3:
+                    omega_f = np.diag([1, 1, fault_data.lambda_m]) @ data
+                else:
+                    omega_f = np.diag([1, 1, 1]) @ data
+                omega = omega_f
+                omega_f = omega_f - data
+                return (omega, omega_f)
             
         return (data, np.zeros((3, 1)))
 
@@ -573,6 +593,7 @@ class SunPointSatellite(Satellite):
     def plot_sun_point_satellite(self):
         times = np.linspace(0, self.t_max, len(self.theta_buffer))
         theta_buffer = np.array(self.theta_buffer)
+        se_buffer = np.array(self.se_buffer)
 
         # 绘制theta
         fig = plt.figure(figsize=(12, 8))

@@ -129,7 +129,9 @@ class Satellite:
         self.omega_e_buffer = []
         self.state = None
         self.q = np.zeros((4, 1))
+        self.q_m = np.zeros((4, 1))  # 四元数测量值（噪声影响）
         self.omega = np.zeros((3, 1))
+        self.omega_m = np.zeros((3, 1))  # 角速度测量值（噪声、故障影响）
         self.qd = np.zeros((4, 1))
         
         self.orbit = Orbit(ts=self.ts, t_max=self.t_max, config=config.orbit)
@@ -182,22 +184,22 @@ class Satellite:
 
         self.q, self.omega = R_K(self.q, self.omega, self.ts, self.j_inv, self.j+self.delta_j, u)
 
-        self.q = self.q_noise.add_quaternion_noise(self.q)
-        self.omega = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
+        self.q_m = self.q_noise.add_quaternion_noise(self.q)
+        self.omega_m = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
 
         omega_d = get_omega_d(self.t)
-        qe = get_q_e(self.qd, self.q)
+        qe = get_q_e(self.qd, self.q_m)
         qev = qe[1:]
-        omega_e = get_omega_e(self.omega, omega_d, qe)
+        omega_e = get_omega_e(self.omega_m, omega_d)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
 
-        self.omega_buffer.append(self.omega.flatten())
-        self.q_buffer.append(self.q.flatten())
+        self.omega_buffer.append(self.omega_m.flatten())
+        self.q_buffer.append(self.q_m.flatten())
         self.torque_buffer.append(torque.flatten())
         self.u_buffer.append(u.flatten())
         self.qe_buffer.append(qe.flatten())
         self.omega_e_buffer.append(omega_e.flatten())
-        reward = Satellite.reward(self, self.torque_buffer[-1], qev, omega_e)
+        reward = Satellite.reward(self, torque, qev, omega_e)
 
         self.t += self.ts
         done = False
@@ -298,30 +300,31 @@ class Satellite:
     def reset(self):
         self.t = 0
 
-        self.qd = np.array([[1], [0], [0], [0]])
-        omega_d = get_omega_d(self.t)
-        self.qd = np.random.random((4, 1))
-        self.qd = self.qd / np.linalg.norm(self.qd)
-        self.q = np.random.random((4, 1))
-        self.q = self.q / np.linalg.norm(self.q)
-        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.1
-        qe = get_q_e(self.qd, self.q)
-        omega_e = get_omega_e(self.omega, omega_d, qe)
-        self.state = np.concatenate([qe, omega_e], axis=0).flatten()
-
-        self.td = np.zeros((3, 1))
-        self.t = 0
-        self.q_buffer = [self.q.flatten()]
-        self.omega_buffer = [self.omega.flatten()]
-        self.torque_buffer = []
-        self.u_buffer = []
-        self.qe_buffer = [qe.flatten()]
-        self.omega_e_buffer = [omega_e.flatten()]
-
         for flywheel in self.flywheel_group:
             flywheel.reset()
 
         self.gyro_noise.reset()
+
+        self.qd = np.random.random((4, 1))
+        self.qd = self.qd / np.linalg.norm(self.qd)
+        self.q = np.random.random((4, 1))
+        self.q = self.q / np.linalg.norm(self.q)
+        self.q_m = self.q_noise.add_quaternion_noise(self.q)
+        qe = get_q_e(self.qd, self.q_m)
+        self.omega = (2 * np.random.random((3, 1)) - 1) * 0.1
+        self.omega_m = self.gyro_noise.add_gyro_noise(self.omega, dt=self.ts)
+        omega_d = get_omega_d(self.t)
+        omega_e = get_omega_e(self.omega_m, omega_d)
+        self.state = np.concatenate([qe, omega_e], axis=0).flatten()
+
+        self.td = np.zeros((3, 1))
+        self.t = 0
+        self.q_buffer = [self.q_m.flatten()]
+        self.omega_buffer = [self.omega_m.flatten()]
+        self.torque_buffer = []
+        self.u_buffer = []
+        self.qe_buffer = [qe.flatten()]
+        self.omega_e_buffer = [omega_e.flatten()]
 
         self.logger.info("quat init: %s", self.q)
         self.logger.info("omega init: %s", self.omega)
@@ -383,12 +386,23 @@ class FaultSatellite(Satellite):
             
         omega, _ = self.fault_inject(self.t, omega, ComponentFaultType.GYROSCOPES, fault_data)
         return omega
+    
+    def step_fault_satellite(self):
+        self.omega_m = self.update_omega_f(self.omega)
+        omega_d = get_omega_d(self.t)
+        qe = get_q_e(self.qd, self.q_m)
+        omega_e = get_omega_e(self.omega_m, omega_d)
+        self.omega_e_buffer[-1] = omega_e.flatten()
+        self.state = np.concatenate([qe, omega_e], axis=0).flatten()
+        return self.state
 
     def step(self, torque):
         torque = torque.reshape(-1, 1)
         u = self.update_u_f(torque)
-        self.omega = self.update_omega_f(self.omega)
-        return Satellite.step(self, u)
+        _, reward, done, info = Satellite.step(self, u)
+        state = self.step_fault_satellite()
+
+        return state, reward, done, info
 
     def fault_inject(self, t, data:np.ndarray, fault_conponent:ComponentFaultType, 
                      fault_data:FaultParams) -> Union[None, Tuple[np.ndarray, np.ndarray]]:
@@ -568,7 +582,9 @@ class SunPointSatellite(Satellite):
     def step_sun_point_satellite(self):
         self.update_se()
         qse = get_q_e(self.qd_sunpoint, self.q)
-        self.state = np.concatenate([qse.flatten(), self.omega_e_buffer[-1]], axis=0).flatten()
+        omega_d = get_omega_d(self.t)
+        omega_e = get_omega_e(self.omega_m, omega_d)
+        self.state = np.concatenate([qse.flatten(), omega_e.flatten()], axis=0).flatten()
         return self.state
 
     def step(self, torque):
@@ -588,9 +604,9 @@ class SunPointSatellite(Satellite):
         self.theta_buffer = []
         self.se_buffer = []
         self.update_se()
-        qse = get_q_e(self.qd_sunpoint, self.q)
+        qse = get_q_e(self.qd_sunpoint, self.q_m)
         omega_d = get_omega_d(self.t)
-        omega_e = get_omega_e(self.omega, omega_d, qse)
+        omega_e = get_omega_e(self.omega_m, omega_d)
         self.state = np.concatenate([qse.flatten(), omega_e.flatten()], axis=0).flatten()
         return self.state
 
@@ -602,7 +618,6 @@ class SunPointSatellite(Satellite):
     def plot_sun_point_satellite(self):
         times = np.linspace(0, self.t_max, len(self.theta_buffer))
         theta_buffer = np.array(self.theta_buffer)
-        se_buffer = np.array(self.se_buffer)
 
         # 绘制theta
         fig = plt.figure(figsize=(12, 8))
@@ -630,8 +645,8 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
     def step(self, torque):
         torque = torque.reshape(-1, 1)
         u = FaultSatellite.update_u_f(self, torque)
-        self.omega = FaultSatellite.update_omega_f(self, self.omega)
-        _, _, done, info = Satellite.step(self, u)
+        _, reward, done, info = Satellite.step(self, u)
+        state = FaultSatellite.step_fault_satellite(self)
         state = SunPointSatellite.step_sun_point_satellite(self)
         qev = self.state[1:4]
         omegae = self.state[4:7]

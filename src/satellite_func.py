@@ -40,18 +40,9 @@ def get_q_e(q_d, q):  # 误差四元数
     return qe
 
 
-def get_omega_e(omega, omega_d, qe):  # 误差角速度
-    # qe0 = float(qe[0][0])
-    # qev = np.array([
-    #     [float(qe[1][0])],
-    #     [float(qe[2][0])],
-    #     [float(qe[3][0])]
-    # ])
-    # C_i = (qe0 ** 2 - (qev.T @ qev)) * np.eye(3) + 2 * qev @ qev.T - 2 * qe0 * cross_matrix(qev)
-    # omega_e1 = omega - C_i @ omega_d
-
-    omega_e1 = omega - omega_d
-    return omega_e1
+def get_omega_e(omega, omega_d):  # 误差角速度
+    omega_e = omega - omega_d
+    return omega_e
 
 
 def R_K(q, omega, tau, j_inv, j, u):

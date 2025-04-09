@@ -9,14 +9,11 @@ sys.path.append(root_path)
 import gym
 import pandas as pd
 import torch
-import time
 from typing import Optional
 
 from communication.udp_commu import UdpClient
 from configs.config import EnvConfig
 from src.satellite import *
-from pyflywheel import FlyWheel
-from PyRealTime import RealTimeSimulation
 import src.td3 as td3
 from src.dyn_net import AttitudeDynamicsNN, OUTPUT_NUM
 
@@ -79,115 +76,6 @@ def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Sat
     if is_plot:
         eval_env.plot()
 
-    return np.sum(rewards)
-
-
-def eval_policy_with_flywheel(agent, dynamic_net, env_name, seed, path=None, is_plot=False):
-    config = EnvConfig()
-
-    if env_name == "Satellite":
-        eval_env = Satellite(config)
-    elif env_name == "FaultSatellite":
-        eval_env = FaultSatellite(config)
-    elif env_name == "SunPointSatellite":
-        eval_env = SunPointSatellite(config)
-    elif env_name == "SunPointFaultSatellite":
-        eval_env = SunPointFaultSatellite(config)
-    else:
-        eval_env = gym.make(env_name)
-    eval_env.seed(seed)
-
-    rewards = []
-    states = []
-    state, done = eval_env.reset(), False
-    state = np.concatenate((state, np.zeros(OUTPUT_NUM)))
-    torque_0 = 0
-
-    def fly_callback(telemetry, last_telemetry):
-        # 修改力矩值
-        nonlocal torque_0, flywheel
-        # 差分计算torque
-        speed = telemetry['flywheel_speed_feedback']
-        last_speed = last_telemetry['flywheel_speed_feedback']
-        timestamp = telemetry['timestamp']
-        last_timestamp = last_telemetry['timestamp']
-
-        if timestamp - last_timestamp > 0:
-            torque_0 = (speed - last_speed) / (timestamp - last_timestamp) * flywheel.inertia
-
-        print("--------------------------------")
-        print(f"callback function, speed: {speed}")
-        print(f"last speed: {last_speed}")
-        print(f"timestamp: {timestamp}")
-        print(f"last timestamp: {last_timestamp}")
-        print(f"torque_0: {torque_0}")
-        print("--------------------------------")
-
-    # flywheel
-    COM = config.flywheel.COM
-    BAUD = config.flywheel.BAUD
-    flywheel = FlyWheel(port=COM, baudrate=BAUD, auto_polling=True, polling_frequency=config.flywheel.polling_frequency, communication_frequency=config.flywheel.communication_frequency, 
-                        callback=fly_callback, queue_size=10)
-    flywheel.connect()
-    real_time_sim = RealTimeSimulation(eval_env.ts)
-
-    time.sleep(1)
-    flywheel.start()
-    flywheel.set_speed(200)  # 200转初速度
-    time.sleep(1)
-
-    def simulation_step(current_time):
-        nonlocal state, done, flywheel
-        if agent is not None:
-            agent_action = agent.select_action(np.array(state))
-        else:
-            agent_action = np.zeros(4)
-        action = np.diag(agent_action) @ eval_env.u_max
-        
-        # 这里只模拟飞轮0
-        flywheel.set_torque(action[0])
-        action[0] = torque_0
-
-        # dynamic net
-        net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
-        pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
-
-        next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
-        
-        pred_error = eval_env.omega.flatten() - pred.flatten()
-
-        next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
-        state = next_state
-
-        states.append(state)
-        rewards.append(reward)
-
-        return done
-
-    real_time_sim.start(simulation_step)
-
-    # wait until RealTimeSimulation is stop
-    while real_time_sim.is_running:
-        time.sleep(0.1)
-
-    real_time_sim.stop()
-    time.sleep(1)
-
-    # 在循环结束后转换为NumPy数组
-    states = np.array(states)
-    rewards = np.array(rewards)
-    actions = np.array(eval_env.u_buffer)
-
-    if path is not None:
-        df = pd.DataFrame(states, columns=[f'state_{i}' for i in range(len(states[0]))])
-        df_uc = pd.DataFrame(actions, columns=[f'u_{i}' for i in range(len(actions[0]))])
-        df = pd.concat([df, df_uc], axis=1)
-        df['reward'] = rewards
-        df.to_csv(path, index=False)
-
-    if is_plot:
-        eval_env.plot()
-        
     return np.sum(rewards)
 
 

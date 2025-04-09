@@ -1,13 +1,12 @@
 import os
 import sys
-import numpy as np
-import torch
 
-module_path = os.path.abspath('../')
-if module_path not in sys.path:
-    sys.path.append(module_path)
+current_file_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(current_file_path)
+root_path = os.path.dirname(parent_dir)
+sys.path.append(root_path)
 
-from satellite import SunPointSatellite
+from src.satellite import SunPointSatellite
 from configs.config import EnvConfig
 
 def eval_pd(kp, kd, env, seed, path=None, is_plot=False):

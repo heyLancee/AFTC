@@ -126,7 +126,7 @@ class UdpClient:
 
 if __name__ == "__main__":
     # if len(sys.argv) < 5:
-    #     print("Usage: python3 udp_client.py <Host> <Port> [LocalPort]")
+    #     print("Usage: python3 udp.py <Host> <Port> [LocalPort]")
     #     sys.exit(1)
 
     # try:

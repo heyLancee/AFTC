@@ -1,11 +1,15 @@
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+
+current_file_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(current_file_path)
+root_path = os.path.dirname(parent_dir)
+sys.path.append(root_path)
 
 from scipy import io
 import numpy as np
 import time
-from udp_client import UdpClient
+from communication.udp import UdpClient
 from base import TelemetryStruct
 
 

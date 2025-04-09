@@ -2,7 +2,7 @@ import json
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 @dataclass
 class SimulationConfig:
@@ -88,6 +88,12 @@ class UdpConfig:
     local_port: int
     header: str
     tail: str
+
+@dataclass
+class SerialConfig:
+    COM: str
+    BAUD: int
+    timeout: Optional[float]
 
 class EnvConfig:
     _instance = None
@@ -214,6 +220,13 @@ class EnvConfig:
                 local_port=config['udp']['local_port'],
                 header=config['udp']['header'],
                 tail=config['udp']['tail']
+            )
+
+            # 解析串口参数
+            self.serial = SerialConfig(
+                COM=config['serial']['COM'],
+                BAUD=config['serial']['BAUD'],
+                timeout=config['serial'].get('timeout', None)
             )
             
         except Exception as e:

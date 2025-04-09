@@ -1,6 +1,6 @@
 {
     "comments": {
-        "0": "无故障 <0.0>",
+        "0": "无故障 <>",
         "1": "陀螺间歇故障 <f1>",
         "2": "陀螺缓变故障 <lambda_s, k_s>",
         "3": "陀螺乘性故障 <lambda_m>",
@@ -11,8 +11,8 @@
     "simulation": {
         "t_max": 200,
         "ts": 0.1,
-        "fault_mode": 6,
-        "fault_params": [0.5, 0.01],
+        "fault_mode": 0,
+        "fault_params": [],
         "fault_start_time": 50,
         "fault_end_time": 100,
         "gyro_fault_idx": 1,
@@ -108,5 +108,9 @@
         "local_port": 5010,
         "header": "SSSSSSSS",
         "tail": "EEEEEEEE"
+    },
+    "serial": {
+        "COM": "COM6",
+        "BAUD": 115200
     }
 }

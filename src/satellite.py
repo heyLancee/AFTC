@@ -220,7 +220,7 @@ class Satellite:
         np.random.seed(seed)
         return seed
     
-    def plot(self):
+    def plot(self, size: Tuple[int, int]=(6, 4)):
         qe_buffer = np.array(self.qe_buffer)
         qe_buffer = qe_buffer[:-1, :]
         omega_e_buffer = np.array(self.omega_e_buffer) * 180 / np.pi
@@ -234,7 +234,7 @@ class Satellite:
         times = np.linspace(0, self.t_max, len(qe_buffer))
 
         # qe_buffer
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, qe_buffer[:, 0], label='qe0')
         ax.plot(times, qe_buffer[:, 1], label='qe1')
@@ -245,7 +245,7 @@ class Satellite:
         ax.set_ylabel('Quaternion') 
 
         # omega_e_buffer
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, omega_e_buffer[:, 0], label='omega_e0')
         ax.plot(times, omega_e_buffer[:, 1], label='omega_e1')
@@ -255,7 +255,7 @@ class Satellite:
         ax.set_ylabel('Omega_e')
 
         # torque_buffer
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, torque_buffer[:, 0], label='u0')
         ax.plot(times, torque_buffer[:, 1], label='u1')
@@ -265,7 +265,7 @@ class Satellite:
         ax.set_ylabel('Torque')
 
         # u_buffer
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, u_buffer[:, 0], label='u0')
         ax.plot(times, u_buffer[:, 1], label='u1')
@@ -275,7 +275,7 @@ class Satellite:
         ax.set_ylabel('Torque')
 
         # q_buffer
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, q_buffer[:, 0], label='q0')
         ax.plot(times, q_buffer[:, 1], label='q1')
@@ -286,7 +286,7 @@ class Satellite:
         ax.set_ylabel('Quaternion')
         
         # omega_buffer
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, omega_buffer[:, 0], label='omega0')
         ax.plot(times, omega_buffer[:, 1], label='omega1')
@@ -490,12 +490,12 @@ class FaultSatellite(Satellite):
             
         return (data, np.zeros((3, 1)))
 
-    def plot_fault_satellite(self):
+    def plot_fault_satellite(self, size: Tuple[int, int]=(6, 4)):
         times = np.linspace(0, self.t_max, len(self.uf_buffer))
         uf_buffer = np.array(self.uf_buffer)
 
         # 绘制se
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, uf_buffer[:, 0], label='uf0')
         ax.plot(times, uf_buffer[:, 1], label='uf1')
@@ -504,9 +504,9 @@ class FaultSatellite(Satellite):
         ax.set_xlabel('Time')
         ax.set_ylabel('fault torque')
 
-    def plot(self):
-        self.plot_fault_satellite()
-        return super().plot()
+    def plot(self, size: Tuple[int, int]=(6, 4)):
+        self.plot_fault_satellite(size)
+        return Satellite.plot(self, size)
 
     def reset_fault_satellite(self):
         self.uf_buffer = []
@@ -615,21 +615,21 @@ class SunPointSatellite(Satellite):
         state = self.reset_sun_point_satellite()
         return state
     
-    def plot_sun_point_satellite(self):
+    def plot_sun_point_satellite(self, size: Tuple[int, int]=(6, 4)):
         times = np.linspace(0, self.t_max, len(self.theta_buffer))
         theta_buffer = np.array(self.theta_buffer)
 
         # 绘制theta
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=size)
         ax = fig.add_subplot(111)
         ax.plot(times, theta_buffer, label='theta')
         ax.legend()
         ax.set_xlabel('Time')
         ax.set_ylabel('Theta')
 
-    def plot(self):
-        self.plot_sun_point_satellite()
-        return super().plot()
+    def plot(self, size: Tuple[int, int]=(6, 4)):
+        self.plot_sun_point_satellite(size)
+        return Satellite.plot(self, size)
         
 
 class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
@@ -663,7 +663,7 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         self.state = SunPointSatellite.reset_sun_point_satellite(self)
         return self.state
     
-    def plot(self):
-        self.plot_fault_satellite()
-        self.plot_sun_point_satellite()
-        return Satellite.plot(self)
+    def plot(self, size: Tuple[int, int]=(6, 4)):
+        self.plot_fault_satellite(size)
+        self.plot_sun_point_satellite(size)
+        return Satellite.plot(self, size)

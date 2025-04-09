@@ -88,7 +88,7 @@ class FaultParams:
 
     # 类常量：每种故障类型对应的参数数量
     _PARAM_COUNTS: Dict['FaultParams.FaultType', int] = {
-        FaultType.NO_FAULT: 1,
+        FaultType.NO_FAULT: 0,
         FaultType.GYRO_INTERMITTENT_FAULT: 1,
         FaultType.GYRO_SLOW_FAULT: 2,
         FaultType.GYRO_MULTI_FAULT: 1,
@@ -97,7 +97,7 @@ class FaultParams:
         FaultType.FLYWHEEL_COMPREHENSIVE: 2
     }
 
-    def __init__(self, fault_type: FaultType = FaultType.NO_FAULT, params: List[float] = [0.0]):
+    def __init__(self, fault_type: FaultType = FaultType.NO_FAULT, params: List[float] = []):
         self.fault_type:FaultParams.FaultType = fault_type
         self.params:List[float] = params
 
@@ -159,6 +159,8 @@ class FaultParams:
             self.fault_type == self.FaultType.FLYWHEEL_COMPREHENSIVE
         ):
             fault_component_id:int = self.flywheel_fault_idx
+        else:
+            fault_component_id:int = 0
         return struct.pack('<2f2I',
                          self.fault_start_time,
                          self.fault_end_time,
@@ -299,10 +301,10 @@ if __name__ == "__main__":
     
     if unpacked_telemetry:
         # 打印十六进制
-        print(f"Unpacked Telemetry (Hex): {unpacked_telemetry.to_byte_array().hex()}")
+        print(f"Unpacked Telemetry Length: {len(unpacked_telemetry.to_byte_array())}")
 
     # 测试FaultParams
-    fault_params = FaultParams(FaultParams.FaultType.GYRO_INTERMITTENT_FAULT, [0.5])
+    fault_params = FaultParams(FaultParams.FaultType.NO_FAULT, [])
     fault_package = package_manager.package(fault_params, CommuDataType.FAULT_PARA)
     unpacked_fault = package_manager.unpackage(fault_package)
 

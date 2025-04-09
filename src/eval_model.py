@@ -12,7 +12,7 @@ import torch
 import time
 from typing import Optional
 
-from communication.udp import UdpClient
+from communication.udp_commu import UdpClient
 from configs.config import EnvConfig
 from src.satellite import *
 from pyflywheel import FlyWheel

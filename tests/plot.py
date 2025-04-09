@@ -9,7 +9,7 @@ sys.path.append(root_path)
 from scipy import io
 import numpy as np
 import time
-from communication.udp import UdpClient
+from communication.udp_commu import UdpClient
 from base import TelemetryStruct
 
 

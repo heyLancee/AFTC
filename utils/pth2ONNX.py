@@ -1,9 +1,19 @@
+import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(current_file_path)
+root_path = os.path.dirname(parent_dir)
+sys.path.append(root_path)
+
 import torch
 import torch.onnx
 import argparse
-from td3 import Actor
+import ast
 
-def convert_pth_to_onnx(pth_path, onnx_path, input_shape, device='cpu'):
+from src.td3 import Actor
+
+def convert_pth_to_onnx(pth_path, onnx_path, input_shape, output_dim, hidden_size, device='cpu'):
     """
     将PyTorch模型转换为ONNX格式
     
@@ -14,7 +24,7 @@ def convert_pth_to_onnx(pth_path, onnx_path, input_shape, device='cpu'):
         device: 运行设备 ('cpu' 或 'cuda')
     """
     # 创建模型实例
-    model = Actor(state_dim=input_shape[1], action_dim=4, max_action=1.0, hidden_size=[256, 256])
+    model = Actor(state_dim=input_shape[1], action_dim=output_dim, max_action=1.0, hidden_size=hidden_size)
     
     # 加载模型权重
     model.load_state_dict(torch.load(pth_path, map_location=device))
@@ -74,13 +84,27 @@ if __name__ == "__main__":
     parser.add_argument('--pth_path', type=str, required=True, help='PyTorch模型路径')
     parser.add_argument('--onnx_path', type=str, required=True, help='ONNX模型保存路径')
     parser.add_argument('--state_dim', type=int, required=True, help='状态维度')
-    parser.add_argument('--batch_size', type=int, default=1, help='批次大小')
+    parser.add_argument('--output_dim', type=int, required=True, help='输出维度')
     parser.add_argument('--device', type=str, default='cpu', help='运行设备 (cpu 或 cuda)')
+    parser.add_argument('--hidden_size', type=str, default="(256, 256)", help='隐藏层大小，例如 "(256, 256)"')
     
     args = parser.parse_args()
     
     # 设置输入形状
-    input_shape = (args.batch_size, args.state_dim)
+    input_shape = (1, args.state_dim)
+    
+    # 设置输出维度
+    output_dim = args.output_dim
+
+    # 解析hidden_size参数
+    args.hidden_size = list(ast.literal_eval(args.hidden_size))
+
+    # 打印参数
+    print(f"PyTorch模型路径: {args.pth_path}")
+    print(f"ONNX模型保存路径: {args.onnx_path}")
+    print(f"输入形状: {input_shape}")
+    print(f"运行设备: {args.device}")
+    print(f"隐藏层大小: {args.hidden_size}")
     
     # 执行转换
-    convert_pth_to_onnx(args.pth_path, args.onnx_path, input_shape, args.device)
+    convert_pth_to_onnx(args.pth_path, args.onnx_path, input_shape, output_dim, args.hidden_size, args.device)

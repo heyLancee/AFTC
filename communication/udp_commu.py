@@ -10,7 +10,8 @@ import socket
 import numpy as np
 import time
 from src.base import TelemetryStruct, CommuDataType, PackageManager, FaultParams
-from src.satellite import FaultSatellite
+from src.satellite import FaultSatellite, SunPointFaultSatellite
+from configs.config import EnvConfig
 
 
 class UdpClient:
@@ -45,15 +46,16 @@ class UdpClient:
     def send_data(self, env):
         telemetry_data = TelemetryStruct()
         telemetry_data.timeStep = env.t
-        telemetry_data.wx = env.omega[0] * 180 / np.pi
-        telemetry_data.wy = env.omega[1] * 180 / np.pi
-        telemetry_data.wz = env.omega[2] * 180 / np.pi
+        telemetry_data.wx = 1
+        telemetry_data.wy = 2
+        telemetry_data.wz = 3
         telemetry_data.q0 = env.q[0]
         telemetry_data.q1 = env.q[1]
         telemetry_data.q2 = env.q[2]
         telemetry_data.q3 = env.q[3]
         telemetry_data.zAngle = env.theta * 180 / np.pi
         packet = self.package_manager.package(telemetry_data, CommuDataType.TELEMETRY)
+        print(f"Send data: {packet.hex()}")
         self.sock.sendto(packet, (self.host, self.port))
 
     def start_receiving(self, env):
@@ -142,15 +144,13 @@ if __name__ == "__main__":
     port = 1200
     local_port = 5010
 
-    from satellite import SunPointFaultSatellite
-    from configs.config import EnvConfig
     config = EnvConfig()
     env = SunPointFaultSatellite(config)
     env.reset()
 
     client = UdpClient(host, port, local_port=local_port)
     if client.connect_to_server():
-        client.start_receiving()  # 启动接收线程
+        client.start_receiving(env)  # 启动接收线程
         try:
             client.send_data(env)
             # 可以在这里添加主程序逻辑

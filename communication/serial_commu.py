@@ -252,17 +252,13 @@ class SerialComm:
         period = 1.0 / self._communication_frequency  # 使用与通信相同的频率
         next_time = time.perf_counter() + period
 
-        per_data_len = len(self.package_manager.header) + len(self.package_manager.tail)
-        per_data_len += struct.calcsize('I')
-        per_data_len += struct.calcsize('<25d')
-
         while self._running:
             try:
                 if not self._is_connected:
                     next_time = self._wait_for_next_cycle(next_time, period)
                     continue
 
-                response = self.serial.read(per_data_len)
+                response = self.serial.read(size=self.serial.in_waiting)
                 if not response:
                     next_time = self._wait_for_next_cycle(next_time, period)
                     continue
@@ -288,17 +284,51 @@ class SerialComm:
         period = 1.0 / self._communication_frequency  # 使用与通信相同的频率
         next_time = time.perf_counter() + period
 
+        buffer = bytearray()
+        per_packet_len = len(self.package_manager.header) + len(self.package_manager.tail)
+        per_packet_len += struct.calcsize('I')
+        per_packet_len += struct.calcsize('<25d')
+
         while self._running:
             try:
                 if self.resp_queue.empty():
                     next_time = self._wait_for_next_cycle(next_time, period)
                     continue
 
-                buffer = self.resp_queue.get()
+                chunk = self.resp_queue.get()
+                if not chunk:
+                    continue
 
-                data = self.package_manager.unpackage(buffer)
-                if self.callback:
-                    self.thread_poll.submit(self.callback, CallbackEvent.RECV_TELE_DATA, data)
+                buffer.extend(chunk)
+
+                # 查找header的位置
+                while True:
+                    header_index = buffer.find(self.package_manager.header)
+                    if header_index == -1:
+                        buffer.clear()
+                        break
+                    
+                    # 清除header之前的数据
+                    buffer = buffer[header_index:]
+
+                    # 检查从header开始是否有足够的数据
+                    if len(buffer) >= per_packet_len:
+                        packet = buffer[:per_packet_len]
+                        try:
+                            data = self.package_manager.unpackage(packet)
+                            if not isinstance(data, TelemetryStruct):
+                                self.logger.error(f"解包数据失败: {data}")
+                                buffer = buffer[per_packet_len:]
+                                continue
+                            if self.callback:
+                                self.thread_poll.submit(self.callback, CallbackEvent.RECV_TELE_DATA, data)
+                        except Exception as e:
+                            self.logger.error(f"解包数据时发生错误: {str(e)}")
+
+                        # 移除已处理的数据
+                        buffer = buffer[per_packet_len:]
+                    else:
+                        break
 
             except Exception as e:
                 self.logger.error(f"处理响应数据时发生错误: {str(e)}")
@@ -321,23 +351,21 @@ class SerialComm:
 if __name__ == '__main__':
     # 用虚拟串口测试下
     def callback(event: CallbackEvent, data: TelemetryStruct):
+        print(f"callback: {event}")
         if event == CallbackEvent.RECV_TELE_DATA:
             print(vars(data))
 
-    serial_comm = SerialComm(port="COM6", baudrate=115200, communication_frequency=200, callback=callback, timeout=None)
+    serial_comm = SerialComm(port="COM5", baudrate=115200, communication_frequency=200, callback=callback, timeout=None)
     serial_comm.connect()
     serial_comm.start()
 
-    for _ in range(10):
+    for _ in range(3):
         time.sleep(1)
         telemetry_data = TelemetryStruct()
         telemetry_data.timeStep = 1.0
         telemetry_data.wx = 1.0
-        telemetry_data.wy = 2.0
-        telemetry_data.wz = 3.0
-        telemetry_data.tx = 6.6
-        telemetry_data.ty = 7.7
-        telemetry_data.tz = 8.8
+        telemetry_data.wy = 1.0
+        telemetry_data.wz = 1.0
 
         serial_comm.request(telemetry_data)
 

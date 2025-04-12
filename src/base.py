@@ -122,7 +122,7 @@ class FaultParams:
         expected_count = self._get_expected_param_count(self.fault_type)
         num_params = len(self.params)
         if num_params != expected_count:
-            raise ValueError(f"Expected {expected_count} parameters for fault type {self.fault_type.name}, but got {num_params}")
+            raise ValueError(f"Expected {expected_count} parameters for fault type {self.fault_type}, but got {num_params}")
         
         if self.fault_type == self.FaultType.NO_FAULT:
             pass

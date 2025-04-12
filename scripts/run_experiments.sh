@@ -12,6 +12,7 @@ echo "当前工作目录: $(pwd)"
 pip install pandas
 pip install scikit-learn
 pip install gym
+pip install matplotlib
 
 # 启动多个训练任务，分别保存到不同的文件夹
 for i in {1..5}; do

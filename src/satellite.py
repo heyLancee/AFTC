@@ -511,6 +511,13 @@ class FaultSatellite(Satellite):
     def reset_fault_satellite(self):
         self.uf_buffer = []
         # self.fault_mode = np.random.randint(0, 3)
+        # if self.fault_mode == 0:
+        #     self.fault_mode = FaultParams.FaultType.NO_FAULT
+        #     self.fault_params = []
+        # elif self.fault_mode == 1:
+        #     self.fault_mode = FaultParams.FaultType.FLYWHEEL_PARTIAL_LOSS
+        #     self.fault_params = [0.1]
+
         self.logger.info("fault mode: %s", self.fault_mode)
 
     def reset(self):
@@ -539,6 +546,7 @@ class SunPointSatellite(Satellite):
 
         self.theta_buffer = []
         self.se_buffer = []
+        self.qse_buffer = []
     
     def update_se(self):
         q_correct = np.array([self.q[1], self.q[2], self.q[3], self.q[0]])
@@ -584,6 +592,7 @@ class SunPointSatellite(Satellite):
         qse = get_q_e(self.qd_sunpoint, self.q)
         omega_d = get_omega_d(self.t)
         omega_e = get_omega_e(self.omega_m, omega_d)
+        self.qse_buffer.append(qse.flatten())
         self.state = np.concatenate([qse.flatten(), omega_e.flatten()], axis=0).flatten()
         return self.state
 
@@ -603,8 +612,10 @@ class SunPointSatellite(Satellite):
     def reset_sun_point_satellite(self):
         self.theta_buffer = []
         self.se_buffer = []
+        self.qse_buffer = []
         self.update_se()
         qse = get_q_e(self.qd_sunpoint, self.q_m)
+        self.qse_buffer.append(qse.flatten())
         omega_d = get_omega_d(self.t)
         omega_e = get_omega_e(self.omega_m, omega_d)
         self.state = np.concatenate([qse.flatten(), omega_e.flatten()], axis=0).flatten()
@@ -618,6 +629,7 @@ class SunPointSatellite(Satellite):
     def plot_sun_point_satellite(self, size: Tuple[int, int]=(6, 4)):
         times = np.linspace(0, self.t_max, len(self.theta_buffer))
         theta_buffer = np.array(self.theta_buffer)
+        qse_buffer = np.array(self.qse_buffer)
 
         # 绘制theta
         fig = plt.figure(figsize=size)
@@ -626,6 +638,15 @@ class SunPointSatellite(Satellite):
         ax.legend()
         ax.set_xlabel('Time')
         ax.set_ylabel('Theta')
+
+        # 绘制qse
+        fig = plt.figure(figsize=size)
+        ax = fig.add_subplot(111)
+        ax.plot(times, qse_buffer[:, 0], label='qse0')
+        ax.plot(times, qse_buffer[:, 1], label='qse1')
+        ax.plot(times, qse_buffer[:, 2], label='qse2')
+        ax.plot(times, qse_buffer[:, 3], label='qse3')
+        ax.legend()
 
     def plot(self, size: Tuple[int, int]=(6, 4)):
         self.plot_sun_point_satellite(size)

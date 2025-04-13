@@ -61,16 +61,15 @@ def hil_eval(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:SunPoi
         flywheel = None
     
     # real-time simulation
-    real_time_sim = RealTimeSimulation(eval_env.ts*3)
+    real_time_sim = RealTimeSimulation(eval_env.ts)
 
     # serial
     if use_serial:
         def serial_callback(event:CallbackEvent, data: TelemetryStruct):
-            nonlocal action
+            nonlocal action, env
             if event == CallbackEvent.RECV_TELE_DATA:
-                action[0] = data.tx
-                action[1] = data.ty
-                action[2] = data.tz
+                agent_output = np.array([data.tx, data.ty, data.tz])
+                action = np.diag(agent_output) @ eval_env.u_max
                 # print(f"tx: {data.tx}, ty: {data.ty}, tz: {data.tz}")
                 
         serial_comm = SerialComm(config.serial.COM, config.serial.BAUD, config.serial.timeout, callback=serial_callback)
@@ -117,7 +116,7 @@ def hil_eval(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:SunPoi
             agent_output = agent.select_action(np.array(state))
             action = np.diag(agent_output) @ eval_env.u_max
 
-        # 这里只模拟飞轮0
+        # 模拟单反作用轮
         if flywheel is not None:
             flywheel.set_torque(action[0])
             action[0] = torque_0
@@ -255,6 +254,6 @@ if __name__ == "__main__":
         dynamicNet.load_model(f"{model_path}/{dynamic_net_path}")
 
     # Evaluate untrained policy
-    reward = hil_eval(policy, dynamicNet, env, seed, path=None, is_plot=True, use_flywheel=False, use_serial=True, use_udp=False)
+    reward = hil_eval(policy, dynamicNet, env, seed, path=None, is_plot=True, use_flywheel=True, use_serial=True, use_udp=True)
     print("reward: ", reward)
 

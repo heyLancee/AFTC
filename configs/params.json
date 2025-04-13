@@ -9,7 +9,7 @@
         "6": "反作用轮综合故障 <e, b>"
     },
     "simulation": {
-        "t_max": 100,
+        "t_max": 200,
         "ts": 0.1,
         "fault_mode": 0,
         "fault_params": [],
@@ -110,7 +110,7 @@
         "tail": "EEEEEEEE"
     },
     "serial": {
-        "COM": "COM5",
+        "COM": "COM10",
         "BAUD": 115200
     }
 }

@@ -43,12 +43,12 @@ class UdpClient:
             print(f"Error creating/binding socket: {e}")
             return False
 
-    def send_data(self, env):
+    def send_data(self, env: FaultSatellite):
         telemetry_data = TelemetryStruct()
         telemetry_data.timeStep = env.t
-        telemetry_data.wx = 1
-        telemetry_data.wy = 2
-        telemetry_data.wz = 3
+        telemetry_data.wx = env.omega[0]
+        telemetry_data.wy = env.omega[1]
+        telemetry_data.wz = env.omega[2]
         telemetry_data.q0 = env.q[0]
         telemetry_data.q1 = env.q[1]
         telemetry_data.q2 = env.q[2]

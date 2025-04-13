@@ -355,11 +355,11 @@ if __name__ == '__main__':
         if event == CallbackEvent.RECV_TELE_DATA:
             print(vars(data))
 
-    serial_comm = SerialComm(port="COM5", baudrate=115200, communication_frequency=200, callback=callback, timeout=None)
+    serial_comm = SerialComm(port="COM6", baudrate=115200, communication_frequency=200, callback=callback, timeout=None)
     serial_comm.connect()
     serial_comm.start()
 
-    for _ in range(3):
+    for _ in range(1):
         time.sleep(1)
         telemetry_data = TelemetryStruct()
         telemetry_data.timeStep = 1.0
@@ -369,5 +369,6 @@ if __name__ == '__main__':
 
         serial_comm.request(telemetry_data)
 
+    time.sleep(10)
     serial_comm.stop()
     serial_comm.disconnect()

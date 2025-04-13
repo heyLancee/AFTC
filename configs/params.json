@@ -14,7 +14,7 @@
         "fault_mode": 0,
         "fault_params": [],
         "fault_start_time": 50,
-        "fault_end_time": 100,
+        "fault_end_time": 200,
         "gyro_fault_idx": 1,
         "flywheel_fault_idx": 1
     },

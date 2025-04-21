@@ -13,9 +13,9 @@ import torch
 
 from src.util_classes import ReplayBuffer
 import src.td3 as td3
-from src.dyn_net import AttitudeDynamicsNN
 from src.eval_model import eval_policy
 from src.satellite import *
+from src.pid import *
 from configs.config import EnvConfig
 
 if __name__ == "__main__":
@@ -41,15 +41,12 @@ if __name__ == "__main__":
 	parser.add_argument("--save_model", action="store_true", default=True)       # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
 	parser.add_argument("--fault_mode", default=-1)
-	parser.add_argument("--dyn_hidden_size", default="64,128", type=str)
-	parser.add_argument("--dyn_net_path", default="")
 	args = parser.parse_args()
 
-	args.policy = "TD3"
-	args.seed = 0
-	args.env = "SunPointFaultSatellite"
-	args.fault_mode = 1
-	args.dyn_net_path = "models/dynamic_net/attitude_dynamics_model.pth"
+	# args.policy = "TD3"
+	# args.seed = 0
+	# args.env = "Satellite"
+	# args.fault_mode = 1
 
 	if args.dir != "":
 		file_name = f"{args.dir}/{args.policy}_{args.env}_{args.seed}"
@@ -111,10 +108,8 @@ if __name__ == "__main__":
 		print("agent load model: ", policy_file)
 		policy.load(f"{model_path}/{policy_file}")
 
-	dynamic_net = AttitudeDynamicsNN(list(map(int, args.dyn_hidden_size.split(','))))
-	if args.dyn_net_path != "":
-		print(f"Load dynamic net: {args.dyn_net_path}")
-		dynamic_net.load_model(args.dyn_net_path)
+	# pid
+	pid = PDController(dt=env.ts)
 
 	replay_buffer = ReplayBuffer(state_dim, action_dim)
 
@@ -124,7 +119,7 @@ if __name__ == "__main__":
 	state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 
 	# Evaluate untrained policy
-	evaluations = [eval_policy(policy, dynamic_net, env, args.seed)]
+	evaluations = [eval_policy(policy, env, args.seed, pid)]
 
 	episode_reward = 0
 	episode_timesteps = 0
@@ -145,21 +140,17 @@ if __name__ == "__main__":
 				policy.select_action(np.array(state))
 				+ np.random.normal(0, max_action * args.expl_noise, size=action_dim)
 			).clip(-max_action, max_action)
-		torque = np.diag(action) @ env.u_max
-
-		# dynamic net
-		net_input = np.concatenate((env.omega.flatten(), (env.C@torque).flatten()))
-		pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
+		
+		# Perform action
+		pid.update(*action)
+		qev = state[1:4]
+		omegae = state[4:7]
+		torque = pid.compute(qev, omegae)
 
 		# Perform action
 		next_state, reward, done, _ = env.step(torque.reshape(-1, 1))
 		done_bool = float(done) if episode_timesteps < env._max_episode_steps else 0
 
-		pred_error = env.omega.flatten() - pred.flatten()
-		pred_errors.append(pred_error)
-	
-		next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
-		
 		# Store data in replay buffer
 		replay_buffer.add(state, action, next_state, reward, done_bool)
 
@@ -184,7 +175,7 @@ if __name__ == "__main__":
 		if (t + 1) % args.eval_freq == 0:
 			eval_reward = 0
 			for _ in range(args.eval_episodes):
-				eval_reward += eval_policy(policy, dynamic_net, env, args.seed)
+				eval_reward += eval_policy(policy, env, args.seed, pid)
 			evaluations.append(eval_reward / args.eval_episodes)
 			pd.DataFrame(evaluations).to_csv(f"./results/{file_name}.csv")
 			if args.save_model:

@@ -15,9 +15,9 @@ from communication.udp_commu import UdpClient
 from configs.config import EnvConfig
 from src.satellite import *
 import src.td3 as td3
-from src.dyn_net import AttitudeDynamicsNN, OUTPUT_NUM
+from src.pid import *
 
-def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Satellite, seed:int,
+def eval_policy(agent:Optional[td3.TD3], env:Satellite, seed:int, pid:PController,
                 path:Optional[str]=None, client:Optional[UdpClient]=None, is_plot:bool=False):
     eval_env = env
     eval_env.seed(seed)
@@ -25,7 +25,7 @@ def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Sat
     rewards = []
     states = []
     state, done = eval_env.reset(), False
-    state = np.concatenate((state, np.zeros(OUTPUT_NUM)))
+    state = np.concatenate((state, np.zeros(td3.STATE_APPEND_NUM)))
 
     # print("等待故障注入")
     # time.sleep(10)
@@ -35,17 +35,13 @@ def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Sat
             agent_action = agent.select_action(np.array(state))
         else:
             agent_action = np.zeros(4)
-        action = np.diag(agent_action) @ eval_env.u_max
-        
-        # dynamic net
-        net_input = np.concatenate((eval_env.omega.flatten(), (eval_env.C@action).flatten()))
-        pred = dynamic_net(torch.tensor(net_input, dtype=torch.float32).unsqueeze(0)).cpu().detach().numpy()
+            
+        pid.update(*agent_action)
+        qev = state[1:4]
+        omegae = state[4:7]
+        torque = pid.compute(qev, omegae)
 
-        next_state, reward, done, _ = eval_env.step(action.reshape(-1, 1))
-        
-        pred_error = eval_env.omega.flatten() - pred.flatten()
-
-        next_state = np.concatenate((next_state.flatten(), pred_error.flatten()))
+        next_state, reward, done, _ = eval_env.step(torque.reshape(-1, 1))
         state = next_state
 
         states.append(state)
@@ -56,7 +52,10 @@ def eval_policy(agent:Optional[td3.TD3], dynamic_net:AttitudeDynamicsNN, env:Sat
 
     states = np.array(states)
     rewards = np.array(rewards)
-    angles = np.array(eval_env.theta_buffer)
+    if hasattr(eval_env, 'theta_buffer'):
+        angles = np.array(eval_env.theta_buffer)
+    else:
+        angles = np.zeros_like(rewards)
     actions = np.array(eval_env.u_buffer)
 
     min_length = min(len(states), len(angles), len(actions), len(rewards))
@@ -83,16 +82,13 @@ if __name__ == "__main__":
     policy = "TD3"
     # seed = np.random.randint(1, 100)
     seed = 1
-    env_name = "SunPointFaultSatellite"
-    dynamic_net_path = "dynamic_net/attitude_dynamics_model.pth"
-    hidden_size = [64, 128]
+    env_name = "Satellite"
     discount = 0.99
     tau = 0.005
     policy_noise = 0.2
     noise_clip = 0.5
     policy_freq = 2
-    policy_model_path = "u_max_008/TD3_SunPointFaultSatellite_0"
-    save_path = "results/u_max_008/eval_res.csv"
+    policy_model_path = ""
 
     config = EnvConfig()
     if env_name == "Satellite":
@@ -106,11 +102,11 @@ if __name__ == "__main__":
     else:
         env = gym.make(env_name)
 
-    client = UdpClient(config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
-    if not client.connect_to_server():
-        print("Failed to connect to server")
-        sys.exit(1)
-    client.start_receiving(env)
+    # client = UdpClient(config.udp.host, config.udp.port, local_port=config.udp.local_port, header=config.udp.header, tail=config.udp.tail)
+    # if not client.connect_to_server():
+    #     print("Failed to connect to server")
+    #     sys.exit(1)
+    # client.start_receiving(env)
 
     state_dim = env.observation_space.shape[0]
     state_dim += td3.STATE_APPEND_NUM
@@ -140,12 +136,10 @@ if __name__ == "__main__":
     if policy_model_path != "":
         policy.load(f"{model_path}/{policy_model_path}")
 
-    dynamicNet = AttitudeDynamicsNN(hidden_size)
-    if dynamic_net_path != "":
-        print(f"Load dynamic net from {dynamic_net_path}")
-        dynamicNet.load_model(f"{model_path}/{dynamic_net_path}")
+    # pid
+    pid = PDController(dt=env.ts)
 
     # Evaluate untrained policy
-    reward = eval_policy(policy, dynamicNet, env, seed, path=None, client=client, is_plot=True)
+    reward = eval_policy(policy, env, seed, pid, path=None, client=None, is_plot=True)
     print("reward: ", reward)
     # client.close()

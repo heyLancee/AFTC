@@ -23,18 +23,16 @@ for i in {1..5}; do
     python main.py \
     --dir ${dir_name} \
     --policy "TD3" \
-    --env "SunPointFaultSatellite" \
+    --env "Satellite" \
     --seed $i \
-    --start_timesteps 4000 \
+    --start_timesteps 2000 \
     --load_model "" \
-    --policy_hidden_size "400,300" \
-    --dyn_hidden_size "64,128" \
+    --policy_hidden_size "256,128" \
     --lr 0.0003 \
     --policy_noise 0.1 \
     --noise_clip 0.5 \
     --policy_freq 2 \
-    --dyn_net_path "models/dynamic_net/attitude_dynamics_model.pth" \
-    --max_timesteps 2000000  &
+    --max_timesteps 500000  &
 done
 
 # 等待所有任务完成

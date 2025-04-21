@@ -7,7 +7,7 @@ from typing import List
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-STATE_APPEND_NUM = 3
+STATE_APPEND_NUM = 0
 
 
 class Actor(nn.Module):

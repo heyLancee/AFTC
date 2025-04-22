@@ -1,3 +1,5 @@
+import numpy as np
+
 class PController:
     def __init__(self, kp=1, dt=0.1):
         self.kp = kp
@@ -21,17 +23,16 @@ class PDController(PController):
     def __init__(self, kp=1, kd=0.1, dt=0.1):
         super().__init__(kp, dt)
         self.kd = kd
-        self.prev_error = 0.0
 
         self.kds = []
 
     def compute(self, p_error, d_error):
-        derivative = (d_error - self.prev_error) / self.dt
-        output = self.kp * p_error + self.kd * derivative
-        self.prev_error = d_error
+        output = self.kp * p_error + self.kd * d_error
         return output
 
     def update(self, kp, kd):
+        kp = -np.abs(kp)
+        kd = -np.abs(kd) * 2
         self.kp = kp
         self.kd = kd
 
@@ -39,12 +40,10 @@ class PDController(PController):
         self.kds.append(kd)
 
     def reset(self):
-        self.prev_error = 0.0
-
         self.kps.clear()
         self.kds.clear()
 
-        
+
 class PIController(PController):
     def __init__(self, kp=1, ki=0.1, dt=0.1):
         super().__init__(kp, dt)
@@ -79,9 +78,7 @@ class PIDController(PDController, PIController):
 
     def compute(self, p_error, i_error, d_error):
         self.integral += i_error * self.dt
-        derivative = (d_error - self.prev_error) / self.dt
-        output = self.kp * p_error + self.ki * self.integral + self.kd * derivative
-        self.prev_error = d_error
+        output = self.kp * p_error + self.ki * self.integral + self.kd * d_error
         return output
     
     def update(self, kp, ki, kd):
@@ -95,7 +92,6 @@ class PIDController(PDController, PIController):
     
     def reset(self):
         self.integral = 0.0
-        self.prev_error = 0.0
 
         self.kps.clear()
         self.kis.clear()

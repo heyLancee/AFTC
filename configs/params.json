@@ -84,16 +84,16 @@
         "lower_bound": [-1, -1, -1, -1, -5, -5, -5]
     },
     "satellite_action_space": {
-        "upper_bound": [5, 5],
-        "lower_bound": [-5, -5]
+        "upper_bound": [1, 1],
+        "lower_bound": [-1, -1]
     },
     "sun_pointing_observation_space": {
         "upper_bound": [1, 1, 1, 1, 5, 5, 5],
         "lower_bound": [-1, -1, -1, -1, -5, -5, -5]
     },
     "sun_pointing_action_space": {
-        "upper_bound": [5, 5],
-        "lower_bound": [-5, -5]
+        "upper_bound": [1, 1],
+        "lower_bound": [-1, -1]
     },
     "flywheel": {
         "COM": "COM5",

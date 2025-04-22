@@ -32,7 +32,7 @@ for i in {1..5}; do
     --policy_noise 0.1 \
     --noise_clip 0.5 \
     --policy_freq 2 \
-    --max_timesteps 500000  &
+    --max_timesteps 1000000  &
 done
 
 # 等待所有任务完成

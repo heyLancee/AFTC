@@ -189,7 +189,6 @@ class Satellite:
 
         omega_d = get_omega_d(self.t)
         qe = get_q_e(self.qd, self.q_m)
-        qev = qe[1:]
         omega_e = get_omega_e(self.omega_m, omega_d)
         self.state = np.concatenate([qe, omega_e], axis=0).flatten()
 
@@ -199,7 +198,7 @@ class Satellite:
         self.u_buffer.append(u.flatten())
         self.qe_buffer.append(qe.flatten())
         self.omega_e_buffer.append(omega_e.flatten())
-        reward = Satellite.reward(self, torque, qev, omega_e)
+        reward = Satellite.reward(self, torque, qe, omega_e)
 
         self.t += self.ts
         done = False
@@ -207,11 +206,17 @@ class Satellite:
             done = True
         return self.state, reward, done, {}
 
-    def reward(self, f, qev, omega_e):
-        reward_1 = 0
+    def reward(self, f, qe, omega_e):
+        qe0 = qe[0]
+        qev = qe[1:]
+        if qe0 >= 0.995:
+            reward_1 = qe0 / (np.linalg.norm(qev) + 0.1)
+        else:
+            reward_1 = 0
         reward_2 = -4 * np.linalg.norm(f)
         reward_3 = -20 * np.linalg.norm(qev)
         reward_4 = -10 * np.linalg.norm(omega_e)
+        
         reward = reward_1 + reward_2 + reward_3 + reward_4
         return reward
 
@@ -600,13 +605,13 @@ class SunPointSatellite(Satellite):
         torque = torque.reshape(-1, 1)
         _, _, done, info = Satellite.step(self, torque)
         state = self.step_sun_point_satellite()
-        qev = self.state[1:4]
+        qe = self.state[1:4]
         omegae = self.state[4:7]
-        reward = self.reward(torque, qev, omegae)
+        reward = self.reward(torque, qe, omegae)
         return state, reward, done, info
 
-    def reward(self, torque, qev, omegae):
-        reward = Satellite.reward(self, torque, qev, omegae)
+    def reward(self, torque, qe, omegae):
+        reward = Satellite.reward(self, torque, qe, omegae)
         return reward
 
     def reset_sun_point_satellite(self):
@@ -669,13 +674,13 @@ class SunPointFaultSatellite(FaultSatellite, SunPointSatellite):
         _, reward, done, info = Satellite.step(self, u)
         state = FaultSatellite.step_fault_satellite(self)
         state = SunPointSatellite.step_sun_point_satellite(self)
-        qev = self.state[1:4]
+        qe = self.state[1:4]
         omegae = self.state[4:7]
-        reward = self.reward(torque, qev, omegae)
+        reward = self.reward(torque, qe, omegae)
         return state, reward, done, info
 
-    def reward(self, torque, qev, omegae):
-        reward = Satellite.reward(self, torque, qev, omegae)
+    def reward(self, torque, qe, omegae):
+        reward = Satellite.reward(self, torque, qe, omegae)
         return reward
     
     def reset(self):

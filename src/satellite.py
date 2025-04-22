@@ -207,6 +207,10 @@ class Satellite:
         return self.state, reward, done, {}
 
     def reward(self, f, qe, omega_e):
+        f = f.flatten()
+        qe = qe.flatten()
+        omega_e = omega_e.flatten()
+        
         qe0 = qe[0]
         qev = qe[1:]
         if qe0 >= 0.995:
